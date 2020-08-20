@@ -12,15 +12,15 @@ const int motor = 53; //pin para habilitar bomba de agua
 int estadodePuerta = 0;        //VARIABLE para verificar el estado de puerta
 const int cargaDOUT = A0;
 const int cargaSCK = A1;
-const float depositonivelalto = 7;
-const float depositonivelmedio = 15;
-const float depositonivelbajo = 23;
-const float depositourgente = 30;
+const float depositonivelalto = 3;
+const float depositonivelmedio = 9;
+const float depositonivelbajo = 13;
+const float depositourgente = 17;
 float niveldeposito = 0;
 String strDato;
 unsigned long tiempo;
 unsigned long tiempoderepeticion = 3600; //tiempo para verificar deposito (segundos)
-const int pesominimo=10;    //peso minimo en gramos
+const int pesominimo = 50;  //peso minimo en gramos
 
 //***************** INCLUDES VARIABLES GLOBALES ****************************
 
@@ -122,8 +122,11 @@ Inicio:
 //***************** FINAL LOOP ****************************
 
 float pesar() {
-  Serial.print("average:\t");
   float peso = (scale.get_units(10) * 454) - 327.17;
+  Serial.print("Peso Minimo para activar el sistema: ");
+  Serial.print(pesominimo); 
+  Serial.println(" Gramos");
+  Serial.print("Peso detectado:");
   Serial.print(abs(peso), 0);
   Serial.println(" Gramos");
   scale.power_down();              // put the ADC in sleep mode
@@ -136,10 +139,9 @@ float pesar() {
 void desinfectar() {
   Serial.println("Desinfectando");
   digitalWrite(motor, LOW);
-  delay(5000);
+  delay(3000);
   digitalWrite(motor, HIGH);
 }
-
 
 
 
@@ -209,7 +211,8 @@ void enviarDatos(String peso, String distancia, String advertencia) {
   //Serial.println("El  peso es:" + (peso) + " **la distancia es:" + (distancia));
 
   char header[] = "GET /update?api_key=";
-  char apiKey[] = "8NCUJ7OGZ0KS1Q5F";//"01NC44KTO6OTZWV5"; //api key del proyecto
+  char apiKey[] = "8NCUJ7OGZ0KS1Q5F";//"01NC44KTO6OTZWV5"; //api key del proyecto anibal
+  //char apiKey[] = "01NC44KTO6OTZWV5"; //api key del proyecto mio
   char host[] = " HTTP/1.1\r\nHost: 184.106.153.149\r\nConnection: close\r\n\r\n";
   char field1[] = "&field1=";
   char field2[] = "&field2=";
@@ -278,6 +281,10 @@ void enviarDatos(String peso, String distancia, String advertencia) {
     wifi.print(url);
   } else {
     Serial.print("ERROR");
+  }
+  if (wifi.available()) {
+    Serial.println("Texto de Respuesta:");
+    Serial.println(wifi.read());
   }
   strTam = "";
   strDato = "";
