@@ -1,0 +1,13 @@
+
+
+Peso: da el peson que hay dentro del buzon en gramos (este campo no aplica cuando se manda una advertencia de deposito
+distancia: la distancia que hay desde el sensor hasta la superficie de agua este se da en cm
+Advertencia: Existen 3 tipos de Advertencia
+	1. PaqueteDesinfectado: se da cuando se ingresa el paquete y hay un nivel medio alto y bajo en el deposito y se logra desinfectar
+	2. PaqueteNoDesinfectado: se da cuando el paquete no pudo ser desinfectado y el deposito esta en nivel muy bajo o vacio
+	3. DepositoVacio: se da como una advertencia o recordatorio al usuario de que el deposito esta proximo a estar vacio (nivel muy bajo)
+Niveldedeposito: es el valor en letras del estado del deposito pueden haber 4 tipos de niveles
+	1. DepositoAlto
+	2. DepositoMedio
+	3. DepositoBajo
+	4. DepositoMuyBajo
