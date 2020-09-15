@@ -21,12 +21,13 @@ int vm2 = 3;
 const int cargaDOUT = A0;
 const int cargaSCK = A1;
 const int pesominimo = 50;  //peso minimo en gramos
+const float distanciaminima = 15.00f;
 //sensor ultrasonico
 #define triggerUltrasonico 6  //pin trigger del ultrasonico
 #define echoUltrasonico 5     //pin echo del ultrasonico
 #define DEBUG true
 #define WIFICONled 13 //LED is connected to Pin 11 of Arduino
-
+#define AlertLed 27
 String activado = "0";
 
 
@@ -42,11 +43,19 @@ unsigned long lastUploadedTime = 0;
 //***************** INICIO DE DEFINICIONES DE OTRAS VARIABLES ****************************
 
 
+//****************Variables a MANDAR***********************
+unsigned long tiempodeentrega=0;
+float pesopaquete =0;
+
+//****************Variables a MANDAR***********************
+
 //***************** INICIO DE DEFINICIONES DE VARIABLES PARA CONEXION ****************************
-char ssid[] = "sdfsadfasdfasdfasdfasdfasdfasdfa"; //  Nombre de red WIFICON, SSID (name).
+char ssid2[] = "sdfsadfasdfasdfasdfasdfasdfasdfa"; //  Nombre de red WIFICON, SSID (name).
+char ssid1[] = "AndroidAP";
 char pass[] = "KKBGVVJK";    // contraseña de WIFICON
 
 //------ MQTT broker settings and topics
+/*
 const char* broker = "mqtt.thingspeak.com"; //Server para mqtt app data
 char mqttUserName[] = "Totoday72";       // Nombre de usuario (puede ser cualqauiera)
 char mqttPass[] = "EV0EFZGZ6PL29HBH";   // colocar el codigo MQTT API Key desde Account > MyProfile.
@@ -58,6 +67,26 @@ String publishTopic = "channels/" + String( publishChannelID ) + "/publish/" + S
 
 //-- subscribed settings Virtuino command 1
 long suscribeChannelID_1 = 1117297; // numero de canal donde se van a leeer los datos que se guardaran con la app movil
+String subscribeTopicFor_Command_1 = "channels/" + String(suscribeChannelID_1) + "/subscribe/fields/field1"; // que campo se leer autoaticamente
+//String subscribeTopicFor_Command_2="channels/"+String(suscribeChannelID_1)+"/subscribe/fields/field2";
+//-- subscribed settings Virtuino command 2
+//long suscribeChannelID_2 = 123456;
+//String subscribeTopicFor_Command_2="channels/"+String(suscribeChannelID_2)+"/subscribe/fields/field1";   // motor
+
+const unsigned long postingInterval = 20L * 1000L; // Post data every 20 seconds.
+*/
+
+const char* broker = "mqtt.thingspeak.com"; //Server para mqtt app data
+char mqttUserName[] = "Totoday72";       // Nombre de usuario (puede ser cualqauiera)
+char mqttPass[] = "RXRMKFZ36GMDVRGB";   // colocar el codigo MQTT API Key desde Account > MyProfile.
+
+//-- published settings
+char publish_writeAPIKey[] = "8NCUJ7OGZ0KS1Q5F";// api key para escribir en el canal
+long publishChannelID = 1117472;       // numero de canal donde se va a guardar los datos
+String publishTopic = "channels/" + String( publishChannelID ) + "/publish/" + String(publish_writeAPIKey);   // no cambiar
+
+//-- subscribed settings Virtuino command 1
+long suscribeChannelID_1 = 1135982; // numero de canal donde se van a leeer los datos que se guardaran con la app movil
 String subscribeTopicFor_Command_1 = "channels/" + String(suscribeChannelID_1) + "/subscribe/fields/field1"; // que campo se leer autoaticamente
 //String subscribeTopicFor_Command_2="channels/"+String(suscribeChannelID_1)+"/subscribe/fields/field2";
 //-- subscribed settings Virtuino command 2
@@ -78,7 +107,6 @@ void setup() {
   pinMode (IN4, OUTPUT);
   pinMode( vm1, OUTPUT);
   pinMode( vm2, OUTPUT);
-
   tiempo = millis();
   Serial.println("Iniciando ...");
   pinMode(WIFICONled, OUTPUT);
@@ -91,10 +119,11 @@ void setup() {
   setEspBaudRate(ESP_BAUDRATE);
   WIFICON.print("AT+RST\r\n");
 
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for Leonardo native USB port only
-  }
-
+  /*
+    while (!Serial) {
+      ; // wait for serial port to connect. Needed for Leonardo native USB port only
+    }
+  */
   Serial.print("Searching for ESP8266...");
   // initialize ESP module
   WiFi.init(&WIFICON);
@@ -104,8 +133,15 @@ void setup() {
     // don't continue
     while (true);
   }
+  //wifiSerial("AT+CWJAP =\"abc\", \"0123456789\"",800);
   Serial.println("found it!");
-  WiFi.begin(ssid, pass); // Note: Local domain names (e.g. "Computer.local" on OSX) are not supported by Arduino. You need to set the IP address directly.
+  WiFi.begin(ssid1, pass); // Note: Local domain names (e.g. "Computer.local" on OSX) are not supported by Arduino. You need to set the IP address directly.
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Connecting to second SSID");
+    WiFi.begin(ssid2, pass);
+    delay(500);
+  }
+
   ThingSpeak.begin(net2);
   client.begin(broker, net);
   //client.onMessage(messageReceived);
@@ -118,19 +154,20 @@ void setup() {
 //***************** LOOP ****************************
 //***************** LOOP ****************************
 void loop() {
-  enviarDatos();
-  /*client.loop();
-    LeerValor();
-    //delay(postingInterval);  // <- fixes some issues with WIFICON stability
-    if (!client.connected()) {
+  //client.loop();
+  //LeerValor();
+  //delay(postingInterval);  // <- fixes some issues with WIFICON stability
+  if (!client.connected()) {
     connect();
-    } else {
+  } else {
     if (activado == "1") { //pesominimo
       float peso = pesar();
       Serial.print("Peso agregado es de ");
       Serial.print(peso);
       Serial.println("Gramos");
       if (peso > pesominimo) {
+        //publicarEncamino();
+        //hacerRecorrido();
         if (millis() - lastUploadedTime > postingInterval) { // The uploading interval must be > 15 seconds
           float sensorValue_1 = peso; // replace with your sensor value
           //int sensorValue_2 = analogRead(A0); // replace with your sensor value
@@ -147,8 +184,9 @@ void loop() {
         }
       }
     }
-    }
-  */
+  }
+  LeerValor();
+  //publicarInicio();
   delay(6000);
   /*
     client.loop();
@@ -171,6 +209,77 @@ void loop() {
 //***************** LOOP ****************************
 //***************** LOOP ****************************
 
+void hacerRecorrido() {
+  
+}
+
+//***************** MENSAJES ****************************
+void publicarInicio(float peso, long tiempodeviaje,int cantidaddeObjetos,String estado,String mensaje) {
+  while (millis() - lastUploadedTime < postingInterval) { // The uploading interval must be > 15 seconds
+    ; // no hace nada hasta que sean mas de 15 segundos para publicar
+  }
+  String dataText = String("field1=" + String(peso)); //+ "&field2=" + String(sensorValue_2));
+  //String dataText = String("field1=" + String(sensorValue_1)+ "&field2=" + String(sensorValue_2)+"&field3=" + String(sensorValue_3)); // example for publish tree sensors
+  boolean result = client.publish(publishTopic, dataText);
+  digitalWrite(AlertLed, 1);
+  delay(150);
+  digitalWrite(AlertLed, 0);
+  delay(50);
+  digitalWrite(AlertLed, 1);
+  delay(150);
+  digitalWrite(AlertLed, 0);
+}
+
+void publicarEntrega(float peso, long tiempodeviaje,int cantidaddeObjetos,String estado,String mensaje) {
+  while (millis() - lastUploadedTime < postingInterval) { // The uploading interval must be > 15 seconds
+    ; // no hace nada hasta que sean mas de 15 segundos para publicar
+  }
+  String dataText = String("field1=" + String(peso)); //+ "&field2=" + String(sensorValue_2));
+  //String dataText = String("field1=" + String(sensorValue_1)+ "&field2=" + String(sensorValue_2)+"&field3=" + String(sensorValue_3)); // example for publish tree sensors
+  boolean result = client.publish(publishTopic, dataText);
+  digitalWrite(AlertLed, 1);
+  delay(150);
+  digitalWrite(AlertLed, 0);
+  delay(50);
+  digitalWrite(AlertLed, 1);
+  delay(150);
+  digitalWrite(AlertLed, 0);
+}
+void publicarEncamino(float peso, long tiempodeviaje,int cantidaddeObjetos,String estado,String mensaje) {
+  while (millis() - lastUploadedTime < postingInterval) { // The uploading interval must be > 15 seconds
+    ; // no hace nada hasta que sean mas de 15 segundos para publicar
+  }
+  String dataText = String("field1=" + String(peso)); //+ "&field2=" + String(sensorValue_2));
+  //String dataText = String("field1=" + String(sensorValue_1)+ "&field2=" + String(sensorValue_2)+"&field3=" + String(sensorValue_3)); // example for publish tree sensors
+  boolean result = client.publish(publishTopic, dataText);
+  digitalWrite(AlertLed, 1);
+  delay(150);
+  digitalWrite(AlertLed, 0);
+  delay(50);
+  digitalWrite(AlertLed, 1);
+  delay(150);
+  digitalWrite(AlertLed, 0);
+}
+
+void publicarHayObstaculo(float peso, long tiempodeviaje,int cantidaddeObjetos,String estado,String mensaje) {
+  while (millis() - lastUploadedTime < postingInterval) { // The uploading interval must be > 15 seconds
+    ; // no hace nada hasta que sean mas de 15 segundos para publicar
+  }
+  String dataText = String("field1=" + String(peso)); //+ "&field2=" + String(sensorValue_2));
+  //String dataText = String("field1=" + String(sensorValue_1)+ "&field2=" + String(sensorValue_2)+"&field3=" + String(sensorValue_3)); // example for publish tree sensors
+  boolean result = client.publish(publishTopic, dataText);
+  digitalWrite(AlertLed, 1);
+  delay(150);
+  digitalWrite(AlertLed, 0);
+  delay(50);
+  digitalWrite(AlertLed, 1);
+  delay(150);
+  digitalWrite(AlertLed, 0);
+}
+//***************** MENSAJES ****************************
+
+
+/****************** lECTURAS NO SIRVEN ****************************
 String wifiSerial(String command, const int timeout)
 {
   String response = "";
@@ -215,7 +324,6 @@ void datosver() {
 
   }
   Serial.println(channelData);
-  client.close();
 }
 
 
@@ -243,7 +351,7 @@ void enviarDatos() {
   //wifiSerial("AT+CIPSEND=4," + strTam+"\r\n", 5000);
   Serial.println("AT+CIPSEND=4," + strTam);
   WIFICON.println("AT+CIPSEND=4," + strTam);
-  
+
   if (WIFICON.find(">")) {
     Serial.print(">");
     Serial.print(url);
@@ -260,22 +368,24 @@ void enviarDatos() {
   //delay(15000);
 
 }
+//***************** lECTURAS NO SIRVEN ****************************/
 
-
-
+//***************** LECTURA DE CAMPO PARA ACTIVACION ****************************
+//***************** LECTURA DE CAMPO PARA ACTIVACION ****************************
 void LeerValor() {
-  activado = String(ThingSpeak.readIntField(suscribeChannelID_1, 1));
+  int dato = (ThingSpeak.readIntField(suscribeChannelID_1, 1));
   // Check the status of the read operation to see if it was successful
   int statusCode = ThingSpeak.getLastReadStatus();
   if (statusCode == 200) {
+    activado = String(dato);
     Serial.println("Valor de la variable: " + String(activado) + " ---- ");
   }
   else {
     Serial.println("Problem reading channel. HTTP error code " + String(statusCode));
   }
-
 }
-
+//***************** LECTURA DE CAMPO PARA ACTIVACION ****************************
+//***************** LECTURA DE CAMPO PARA ACTIVACION ****************************
 
 //***************** PESAR ****************************
 //***************** PESAR ****************************
@@ -295,7 +405,33 @@ float pesar() {
 //***************** PESAR ****************************
 //***************** PESAR ****************************
 
+//***************** DISTANCIA ****************************
+//***************** DISTANCIA ****************************
+float medirDistancia(int modo) {
+  long duracion;
+  float distancia = 0;
+  float distanciapromedio = 0;
+  digitalWrite(triggerUltrasonico, LOW);
+  delayMicroseconds(5);
+  digitalWrite(triggerUltrasonico, HIGH);
+  //delayMicroseconds(1000);
+  delayMicroseconds(10);
+  digitalWrite(triggerUltrasonico, LOW);
+  duracion = pulseIn(echoUltrasonico, HIGH);
+  distancia = duracion * 0.01768115942 ;
+  distanciapromedio += distancia;
+  Serial.println(distancia);
+  Serial.print ("Distancia en Promedio: ");
+  Serial.println(distanciapromedio);
+  if (distanciapromedio < distanciaminima) {
+    //detener();
+    //publicarHayObstaculo();
+  }
+  return distanciapromedio;
+}
 
+//***************** DISTANCIA ****************************
+//***************** DISTANCIA ****************************
 
 //***************** WIFICON ****************************
 //***************** WIFICON ****************************
