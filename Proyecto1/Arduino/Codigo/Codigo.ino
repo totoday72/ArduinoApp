@@ -11,17 +11,17 @@ const int lineacentro = 8;
 const int lineader = 7;
 
 // Salidas de  motor
-const int IN1 = 52;
-const int IN2 = 53;
+const int IN1 = 26;
+const int IN2 = 27;
 int vm1 = 2;
-const int IN3 = 50;
-const int IN4 = 51;
+const int IN3 = 28;
+const int IN4 = 29;
 int vm2 = 3;
 //Sensor de peso
 const int cargaDOUT = A0;
 const int cargaSCK = A1;
 const int pesominimo = 50;  //peso minimo en gramos
-const float distanciaminima = 15.00f;
+const float distanciaminima = 5;
 //sensor ultrasonico
 #define triggerUltrasonico 6  //pin trigger del ultrasonico
 #define echoUltrasonico 5     //pin echo del ultrasonico
@@ -53,7 +53,7 @@ int ultimoladovistolinea = 0; // el lado en que se vio la linea por ultima vez
 int ultimovalorvm1 = 0; //indica con que velocidad estaban los motores antes de detectar un obstaculo
 int ultimovalorvm2 = 0;
 int obstaculosEncontrados = 0; //cantidad de obstaculos encontrados de ida o de regreso
-const int valorlineanegra = 400; //valor de la linea negra
+const int valorlineanegra = 1; //valor de la linea negra
 float peso = 0;//cosntante que dice cuanto es el peso
 //****************Variables a MANDAR***********************
 
@@ -108,6 +108,8 @@ const unsigned long postingInterval = 20L * 1000L; // Post data every 20 seconds
 //***************** SETUP ****************************
 void setup() {
   // put your setup code here, to run once:
+  pinMode(triggerUltrasonico, OUTPUT);
+  pinMode(echoUltrasonico, INPUT);
   Serial.begin(9600);
   pinMode (IN1, OUTPUT);
   pinMode (IN2, OUTPUT);
@@ -163,11 +165,12 @@ void setup() {
 
 void loop() {
   //client.loop();
-  LeerValor();
-  //delay(postingInterval);  // <- fixes some issues with WIFICON stability
-  if (!client.connected()) {
+  hacerRecorrido(ida);
+  /*LeerValor();
+    //delay(postingInterval);  // <- fixes some issues with WIFICON stability
+    if (!client.connected()) {
     connect();
-  } else {
+    } else {
     if (activado == "1") { //pesominimo
       peso = pesar();
       Serial.print("Peso agregado es de ");
@@ -185,102 +188,123 @@ void loop() {
         hacerRecorrido(regreso);
       }
     }
-  }
+    }
+  */
   //LeerValor();
-  delay(6000);
+  delay(40000);
 }
 //***************** LOOP ****************************
 //***************** LOOP ****************************
 
 void hacerRecorrido(int modo) { //const int lineaizq = 9; //const int lineacentro = 8; //const int lineader = 7;
   int respuestasensor = verificarSensores();
-  while ( respuestasensor == 200) //salir de zona de entrega o buzon
-    avanzar(500, modo, velocidadlenta); // se avanza por medio segundo
-
+  if (modo == regreso) {
+    girarderecha(400, modo, velocidadlenta);
+    do {
+      girarderecha(100, modo, velocidadlenta);
+      respuestasensor = verificarSensores();
+    } while (respuestasensor == 1);
+  }
+  respuestasensor = verificarSensores();
+  while ( respuestasensor == 200) { //salir de zona de entrega o buzon
+    avanzar(300, modo, velocidadlenta); // se avanza por medio segundo
+    respuestasensor = verificarSensores();
+    Serial.println("Estado de sensores while ==200:" + String(respuestasensor));
+  }
   while (respuestasensor != 1) { // se coloca el sensor central en la linea.
-    girarderecha(20, modo, velocidadlenta); //se busca la linea girando hacia la derecha hasta encontrarla
+    girarderecha(300, modo, velocidadlenta); //se busca la linea girando hacia la derecha hasta encontrarla
     respuestasensor = verificarSensores(); // se verifica que el sensor central este sobre la linea
+    Serial.println("Estado de sensores While !=1:" + String(respuestasensor));
   }
 
   while ( respuestasensor != 200) { //mientras no llegue la entrega o al buzon.
     if (respuestasensor == 0) { // si la linea se detecta con el sensor del lado izquierdo
       if (modo == ida) { // si va de ida, gira a la izquierda
-        girarizquierda(100, modo, velocidadmedia);
-        avanzar(500, modo, velocidadmedia);
+        girarizquierda(200, modo, velocidadmedia);
+        avanzar(200, modo, velocidadmedia);
         ultimoladovistolinea = respuestasensor;
       } else if (modo == regreso) { // si va de regreso, gira a la derecha
-        girarderecha(100, modo, velocidadmedia);
-        avanzar(500, modo, velocidadmedia);
+        girarderecha(200, modo, velocidadmedia);
+        avanzar(200, modo, velocidadmedia);
         ultimoladovistolinea = respuestasensor;
       }
     }
     else if (respuestasensor == 2) {
       if (modo == ida) {
-        girarderecha(100, modo, velocidadmedia);
-        avanzar(500, modo, velocidadmedia);
+        girarderecha(200, modo, velocidadmedia);
+        avanzar(200, modo, velocidadmedia);
         ultimoladovistolinea = respuestasensor;
       } else if (modo == regreso) {
-        girarizquierda(100, modo, velocidadmedia);
-        avanzar(500, modo, velocidadmedia);
+        girarizquierda(200, modo, velocidadmedia);
+        avanzar(200, modo, velocidadmedia);
         ultimoladovistolinea = respuestasensor;
       }
     }
     else if (respuestasensor == 1) {
       if (modo == ida) {
-        avanzar(100, modo, velocidadmedia);
+        avanzar(200, modo, velocidadmedia);
       } else if (modo == regreso) {
-        retroceder(100, modo, velocidadmedia);
+        retroceder(200, modo, velocidadmedia);
       }
-    }
+    } else
 
-    //aca se define cuando estan dos de los sensores en negro
-    if (respuestasensor == 50) { //hay un cruce de 90 a la izq
-      do {
-        girarizquierda(500, modo, velocidadlenta);
-        respuestasensor = verificarSensores();
-      } while (respuestasensor == 1);
-    }
-    else if (respuestasensor == 100) {//hay un cruce de 90 a la deracha
-      do {
-        girarderecha(500, modo, velocidadlenta);
-        respuestasensor = verificarSensores();
-      } while (respuestasensor == 1);
-    }
+      //aca se define cuando estan dos de los sensores en negro
+      if (respuestasensor == 50) { //hay un cruce de 90 a la izq
+        do {
+          girarizquierda(100, modo, velocidadlenta);
+          respuestasensor = verificarSensores();
+        } while (respuestasensor == 1);
+      }
+      else if (respuestasensor == 100) {//hay un cruce de 90 a la deracha
+        do {
+          girarderecha(100, modo, velocidadlenta);
+          respuestasensor = verificarSensores();
+        } while (respuestasensor == 1);
+      }
 
     //aca se define cuando no se encuentra la linea en ningun sensor.
-    else if (respuestasensor == -1) {
-      if (ultimoladovistolinea == 0) {
-        girarizquierda(100, modo, velocidadlenta);
-        avanzar(500, modo, velocidadlenta);
-      } else if (ultimoladovistolinea == 2) {
-        girarderecha(100, modo, velocidadlenta);
-        avanzar(500, modo, velocidadlenta);
+      else if (respuestasensor == -1) {
+        if (ultimoladovistolinea == 0) {
+          girarizquierda(200, modo, velocidadlenta);
+          avanzar(200, modo, velocidadlenta);
+        } else if (ultimoladovistolinea == 2) {
+          girarderecha(200, modo, velocidadlenta);
+          avanzar(200, modo, velocidadlenta);
+        }
       }
-    }
-    if (medirDistancia() < distanciaminima) { //si se detecta un objeto en el camino.
+    if (distanciaminima > medirDistancia()) { //si se detecta un objeto en el camino.
       detener(); //se detiene String ubicacion, String estado, String paquetes, String obstaculos, String peso, String tiempoentrega, String tiemporetorno
-      publicarHayObstaculo("EnRecorrido:", "DetenidoObstaculo", "-1", "-1", "-1", "-1", "-1" ); //publica obstaculo falta como enviar la ubicacion
+      //publicarHayObstaculo("EnRecorrido:", "DetenidoObstaculo", "-1", "-1", "-1", "-1", "-1" ); //publica obstaculo falta como enviar la ubicacion
       obstaculosEncontrados++;
-      while (medirDistancia() < distanciaminima) { //mientras no se quite el obstaculo. no va a seguir
-        ;
+      float distanciam = medirDistancia();
+      while (distanciaminima > distanciam) { //mientras no se quite el obstaculo. no va a seguir
+        Serial.println("obstaculos:" + String(obstaculosEncontrados));
+        distanciam = medirDistancia();
+        Serial.println("Distancia:" + String(distanciam) + "Distancia Min.:" + String(distanciaminima));
       }
       if (modo == ida) {
-        publicarEncamino("EnRecorrido:", "HaciaPuntoEntrega", "-1", "-1", "-1", "-1", "-1");
+        Serial.println("publica en HaciaPuntoEntrega");
+        //publicarEncamino("EnRecorrido:", "HaciaPuntoEntrega", "-1", "-1", "-1", "-1", "-1");
       } else {
-        publicarEncamino("EnRecorrido:", "RegresoaBuzon", "-1", "-1", "-1", "-1", "-1");
+        Serial.println("regreso a buzon");
+        //publicarEncamino("EnRecorrido:", "RegresoaBuzon", "-1", "-1", "-1", "-1", "-1");
       }
       continuar(); // si ya no hay obstaculo continua solo encendiendo los motores
     }
     respuestasensor = verificarSensores();// verifica el estado de los sensores
+    Serial.println("Estado de sensores While!= 200:" + String(respuestasensor));
+    //delay(7000);
 
   }//String ubicacion, String estado, String paquetes, String obstaculos, String peso, String tiempoentrega, String tiemporetorno
   if (modo == ida) {
-    publicarPuntoEntrega("EnPuntoEntrega:", "EnReposo", "1", String(obstaculosEncontrados), "-1", String(tiempoviaje), "-1"); //publica obstaculo falta como enviar la ubicacion
+    Serial.println("publica EnPuntoEntrega");
+    //publicarPuntoEntrega("EnPuntoEntrega:", "EnReposo", "1", String(obstaculosEncontrados), "-1", String(tiempoviaje), "-1"); //publica obstaculo falta como enviar la ubicacion
     peso = 0;
     obstaculosEncontrados = 0;
     tiempoviaje = 0;
   } else {
-    publicarPuntoPartida("EnPuntodepartida:", "EnReposo", "-1", String(obstaculosEncontrados), "-1", "-1", String(tiempoviaje));
+    Serial.println("publica EnPuntodepartida");
+    //publicarPuntoPartida("EnPuntodepartida:", "EnReposo", "-1", String(obstaculosEncontrados), "-1", "-1", String(tiempoviaje));
     peso = 0;
     obstaculosEncontrados = 0;
     tiempoviaje = 0;
@@ -289,29 +313,32 @@ void hacerRecorrido(int modo) { //const int lineaizq = 9; //const int lineacentr
 }
 
 int verificarSensores() {
-  int izq = analogRead(lineaizq);
-  int cnt = analogRead(lineaizq);
-  int der = analogRead(lineader);
-  if (izq >= valorlineanegra && der >= valorlineanegra && cnt >= valorlineanegra) { //los tres tienen negro al mismo tiempo
+  int izq = digitalRead(lineaizq);
+  int cnt = digitalRead(lineacentro);
+  int der = digitalRead(lineader);
+  Serial.println("izq" + String(izq) + ":cnt" + String(cnt) + ":der" + String(der));
+  delay(500);
+  if (izq == valorlineanegra && der == valorlineanegra && cnt == valorlineanegra) { //los tres tienen negro al mismo tiempo
     return 200; // indica que llego a punto de entrega
   }
-  if (izq > cnt && izq > der) { // la linea esta en el sensor izquierdo
+  if (izq == valorlineanegra && cnt != valorlineanegra && der != valorlineanegra) { // la linea esta en el sensor izquierdo
     return 0;
-  } else if ( der > izq && der > cnt) { // la linea esta en el sensor derecho
+  } else if (izq != valorlineanegra && cnt != valorlineanegra && der == valorlineanegra) { // la linea esta en el sensor derecho
     return 2;
-  } else if ( cnt > der && cnt > izq) { // la linea esta en el sensor central
+  } else if ( izq != valorlineanegra && cnt == valorlineanegra && der != valorlineanegra) { // la linea esta en el sensor central
     return 1;
-  } else if (izq > valorlineanegra && cnt > valorlineanegra) { //hay un cruce de 90 a la izq
+  } else if (izq == valorlineanegra && cnt == valorlineanegra && der != valorlineanegra) { //hay un cruce de 90 a la izq
     return 50;
-  } else if (der > valorlineanegra && cnt > valorlineanegra) { //hay un cruce de 90 a la deracha
+  } else if (izq != valorlineanegra && cnt == valorlineanegra && der == valorlineanegra) { //hay un cruce de 90 a la deracha
     return 100;
   } else { // la linea no esta en ningun sensor, se procede a dar una vuelta para ver donde hay linea.
     return -1;
   }
-  return 100;
+  return -1;
 }
 
 void avanzar(int retardo, int modo, int velocidad) {
+  Serial.println("Avanzando:" + String(velocidad));
   ultimovalorvm1 = velocidad;
   ultimovalorvm2 = velocidad;
   if (modo == ida) {
@@ -326,6 +353,7 @@ void avanzar(int retardo, int modo, int velocidad) {
 }
 
 void retroceder(int retardo, int modo, int velocidad) {
+  Serial.println("Retrocede:" + String(velocidad));
   ultimovalorvm1 = velocidad;
   ultimovalorvm2 = velocidad;
   if (modo == regreso) {
@@ -340,6 +368,7 @@ void retroceder(int retardo, int modo, int velocidad) {
 }
 
 void girarderecha(int retardo, int modo, int velocidad) {
+  Serial.println("Gira derecga:" + String(velocidad));
   ultimovalorvm1 = velocidad;
   ultimovalorvm2 = velocidad;
   if (modo == regreso) {
@@ -354,6 +383,7 @@ void girarderecha(int retardo, int modo, int velocidad) {
 }
 
 void girarizquierda(int retardo, int modo, int velocidad) {
+  Serial.println("Gira izquierda:" + String(velocidad));
   ultimovalorvm1 = velocidad;
   ultimovalorvm2 = velocidad;
   if (modo == regreso) {
@@ -370,6 +400,7 @@ void girarizquierda(int retardo, int modo, int velocidad) {
 // ******************** ACCIONES CON LOS MOTORES ***************************
 // ******************** ACCIONES CON LOS MOTORES ***************************
 void detener () {
+  Serial.println("Detiene:");
   analogWrite(vm1, 0);
   analogWrite(vm2, 0);
 }
@@ -380,40 +411,40 @@ void continuar() {
 }
 
 void adelante(int velocidad) {
-  analogWrite(vm1, velocidad);
-  analogWrite(vm2, velocidad);
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
+  analogWrite(vm1, velocidad);
+  analogWrite(vm2, velocidad);
 
 }
 
 void retroceso (int velocidad) {
-  analogWrite(vm2, velocidad);
-  analogWrite(vm1, velocidad);
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
+  analogWrite(vm2, velocidad);
+  analogWrite(vm1, velocidad);
 }
 
 void giroizquierda(int velocidad) {
-  analogWrite(vm2, velocidad);
-  analogWrite(vm1, velocidad);
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
-  digitalWrite(IN3, HIGH);
-  digitalWrite(IN4, LOW);
-}
-
-void giroderecha(int velocidad) {
-  analogWrite(vm2, velocidad);
-  analogWrite(vm1, velocidad);
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
+  analogWrite(vm2, velocidad);
+  analogWrite(vm1, velocidad);
+}
+
+void giroderecha(int velocidad) {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  analogWrite(vm2, velocidad);
+  analogWrite(vm1, velocidad);
 }
 // ******************** ACCIONES CON LOS MOTORES ***************************
 // ******************** ACCIONES CON LOS MOTORES ***************************
@@ -658,7 +689,6 @@ float pesar() {
 float medirDistancia() {
   long duracion;
   float distancia = 0;
-  float distanciapromedio = 0;
   digitalWrite(triggerUltrasonico, LOW);
   delayMicroseconds(5);
   digitalWrite(triggerUltrasonico, HIGH);
@@ -667,11 +697,9 @@ float medirDistancia() {
   digitalWrite(triggerUltrasonico, LOW);
   duracion = pulseIn(echoUltrasonico, HIGH);
   distancia = duracion * 0.01768115942 ;
-  distanciapromedio += distancia;
-  Serial.println(distancia);
   Serial.print ("Distancia en Promedio: ");
-  Serial.println(distanciapromedio);
-  return distanciapromedio;
+  Serial.println(distancia);
+  return distancia;
 }
 
 //***************** DISTANCIA ****************************
