@@ -437,7 +437,27 @@ class _MyDashboardState extends State<MyHomePage> {
                         valor =
                             formatearFecha(DateTime.parse(valor), DATE_FORMAT);
                       }
-                      return Text("${item["nombre"]}: $valor");
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: Card(
+                                child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                "${item["nombre"]}:".toUpperCase(),
+                                style: TextStyle(fontWeight: FontWeight.w900),
+                              ),
+                            )),
+                          ),
+                          Expanded(
+                              child: Card(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text("$valor"),
+                            ),
+                          ))
+                        ],
+                      );
                     }))
           ],
         ),
