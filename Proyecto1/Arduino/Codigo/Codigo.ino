@@ -47,14 +47,15 @@ unsigned long tiempoviaje = 0;
 const int ida = 1; //cosntante que indica un viaje de ida
 const int regreso = 2;//cosntante que indica un viaje de regreso
 const int velocidadrapida = 255; //velocidad maxima para los motores
-const int velocidadmedia = 180; // velocidad media para los motores
-const int velocidadlenta = 150; // velocidad lenta para los motores
+const int velocidadmedia = 160; // velocidad media para los motores
+const int velocidadlenta = 200; // velocidad lenta para los motores
 int ultimoladovistolinea = 0; // el lado en que se vio la linea por ultima vez
 int ultimovalorvm1 = 0; //indica con que velocidad estaban los motores antes de detectar un obstaculo
 int ultimovalorvm2 = 0;
 int obstaculosEncontrados = 0; //cantidad de obstaculos encontrados de ida o de regreso
 const int valorlineanegra = 1; //valor de la linea negra
 float peso = 0;//cosntante que dice cuanto es el peso
+const int retraso = 5;
 //****************Variables a MANDAR***********************
 
 //***************** INICIO DE DEFINICIONES DE VARIABLES PARA CONEXION ****************************
@@ -191,86 +192,100 @@ void loop() {
     }
   */
   //LeerValor();
-  delay(40000);
+  delay(15000);
 }
 //***************** LOOP ****************************
 //***************** LOOP ****************************
-
+int accionanterior = -1;
 void hacerRecorrido(int modo) { //const int lineaizq = 9; //const int lineacentro = 8; //const int lineader = 7;
+  accionanterior = -1;
   int respuestasensor = verificarSensores();
   if (modo == regreso) {
-    girarderecha(400, modo, velocidadlenta);
-    do {
-      girarderecha(100, modo, velocidadlenta);
+    girarderecha(retraso, modo, velocidadlenta);
+    while (respuestasensor == 1) {
+      girarderecha(retraso, modo, velocidadlenta);
       respuestasensor = verificarSensores();
-    } while (respuestasensor == 1);
+    }
   }
   respuestasensor = verificarSensores();
   while ( respuestasensor == 200) { //salir de zona de entrega o buzon
-    avanzar(300, modo, velocidadlenta); // se avanza por medio segundo
+    avanzar(retraso, modo, velocidadmedia); // se avanza por medio segundo
     respuestasensor = verificarSensores();
     Serial.println("Estado de sensores while ==200:" + String(respuestasensor));
   }
   while (respuestasensor != 1) { // se coloca el sensor central en la linea.
-    girarderecha(300, modo, velocidadlenta); //se busca la linea girando hacia la derecha hasta encontrarla
+    girarderecha(retraso, modo, velocidadlenta); //se busca la linea girando hacia la derecha hasta encontrarla
     respuestasensor = verificarSensores(); // se verifica que el sensor central este sobre la linea
     Serial.println("Estado de sensores While !=1:" + String(respuestasensor));
   }
 
-  while ( respuestasensor != 200) { //mientras no llegue la entrega o al buzon.
+  while (true) { //mientras no llegue la entrega o al buzon.
+    respuestasensor = verificarSensores();
     if (respuestasensor == 0) { // si la linea se detecta con el sensor del lado izquierdo
       if (modo == ida) { // si va de ida, gira a la izquierda
-        girarizquierda(200, modo, velocidadmedia);
-        avanzar(200, modo, velocidadmedia);
-        ultimoladovistolinea = respuestasensor;
+        girarizquierda(retraso, modo, velocidadlenta);
+        //avanzar(retraso, modo, velocidadmedia);
+        ultimoladovistolinea = 0;
+        accionanterior = 0;
       } else if (modo == regreso) { // si va de regreso, gira a la derecha
-        girarderecha(200, modo, velocidadmedia);
-        avanzar(200, modo, velocidadmedia);
-        ultimoladovistolinea = respuestasensor;
+        girarderecha(retraso, modo, velocidadlenta);
+        //avanzar(retraso, modo, velocidadmedia);
+        ultimoladovistolinea = 0;
+        accionanterior = 0;
       }
     }
     else if (respuestasensor == 2) {
       if (modo == ida) {
-        girarderecha(200, modo, velocidadmedia);
-        avanzar(200, modo, velocidadmedia);
-        ultimoladovistolinea = respuestasensor;
+        girarderecha(retraso, modo, velocidadlenta);
+        //avanzar(retraso, modo, velocidadmedia);
+        ultimoladovistolinea = 2;
+        accionanterior = 2;
       } else if (modo == regreso) {
-        girarizquierda(200, modo, velocidadmedia);
-        avanzar(200, modo, velocidadmedia);
-        ultimoladovistolinea = respuestasensor;
+        girarizquierda(retraso, modo, velocidadlenta);
+        //avanzar(retraso, modo, velocidadmedia);
+        ultimoladovistolinea = 2;
+        accionanterior = 2;
       }
     }
     else if (respuestasensor == 1) {
       if (modo == ida) {
-        avanzar(200, modo, velocidadmedia);
+        avanzar(retraso, modo, velocidadmedia);
+        accionanterior = 1;
       } else if (modo == regreso) {
-        retroceder(200, modo, velocidadmedia);
+        retroceder(retraso, modo, velocidadmedia);
+        accionanterior = 1;
       }
     } else
 
       //aca se define cuando estan dos de los sensores en negro
       if (respuestasensor == 50) { //hay un cruce de 90 a la izq
-        do {
-          girarizquierda(100, modo, velocidadlenta);
+        while (respuestasensor != 1 && respuestasensor != 200) {
+          girarizquierda(retraso, modo, velocidadlenta);
           respuestasensor = verificarSensores();
-        } while (respuestasensor == 1);
+          Serial.println("Buscando linea en centro girando a la izquierda");
+        }
+
       }
       else if (respuestasensor == 100) {//hay un cruce de 90 a la deracha
-        do {
-          girarderecha(100, modo, velocidadlenta);
+        while (respuestasensor != 1 && respuestasensor != 200) {
+          girarderecha(retraso, modo, velocidadlenta);
           respuestasensor = verificarSensores();
-        } while (respuestasensor == 1);
+          Serial.println("Buscando linea en centro girando a la derecha");
+        }
       }
 
     //aca se define cuando no se encuentra la linea en ningun sensor.
       else if (respuestasensor == -1) {
         if (ultimoladovistolinea == 0) {
-          girarizquierda(200, modo, velocidadlenta);
-          avanzar(200, modo, velocidadlenta);
+          girarizquierda(retraso, modo, velocidadmedia);
+          //avanzar(retraso, modo, velocidadlenta);
+          accionanterior = -1;
         } else if (ultimoladovistolinea == 2) {
-          girarderecha(200, modo, velocidadlenta);
-          avanzar(200, modo, velocidadlenta);
+          girarderecha(retraso, modo, velocidadlenta);
+          //avanzar(retraso, modo, velocidadmedia);
+          accionanterior = -1;
         }
+        Serial.println("estoy en -1" + String(ultimoladovistolinea));
       }
     if (distanciaminima > medirDistancia()) { //si se detecta un objeto en el camino.
       detener(); //se detiene String ubicacion, String estado, String paquetes, String obstaculos, String peso, String tiempoentrega, String tiemporetorno
@@ -290,12 +305,17 @@ void hacerRecorrido(int modo) { //const int lineaizq = 9; //const int lineacentr
         //publicarEncamino("EnRecorrido:", "RegresoaBuzon", "-1", "-1", "-1", "-1", "-1");
       }
       continuar(); // si ya no hay obstaculo continua solo encendiendo los motores
+      
     }
-    respuestasensor = verificarSensores();// verifica el estado de los sensores
+    if(respuestasensor == 200 && accionanterior != -1){
+      break;  
+    }
+    //respuestasensor = verificarSensores();// verifica el estado de los sensores
     Serial.println("Estado de sensores While!= 200:" + String(respuestasensor));
     //delay(7000);
 
-  }//String ubicacion, String estado, String paquetes, String obstaculos, String peso, String tiempoentrega, String tiemporetorno
+  }
+  detener();//String ubicacion, String estado, String paquetes, String obstaculos, String peso, String tiempoentrega, String tiemporetorno
   if (modo == ida) {
     Serial.println("publica EnPuntoEntrega");
     //publicarPuntoEntrega("EnPuntoEntrega:", "EnReposo", "1", String(obstaculosEncontrados), "-1", String(tiempoviaje), "-1"); //publica obstaculo falta como enviar la ubicacion
@@ -317,7 +337,7 @@ int verificarSensores() {
   int cnt = digitalRead(lineacentro);
   int der = digitalRead(lineader);
   Serial.println("izq" + String(izq) + ":cnt" + String(cnt) + ":der" + String(der));
-  delay(500);
+  delay(retraso);
   if (izq == valorlineanegra && der == valorlineanegra && cnt == valorlineanegra) { //los tres tienen negro al mismo tiempo
     return 200; // indica que llego a punto de entrega
   }
@@ -343,12 +363,12 @@ void avanzar(int retardo, int modo, int velocidad) {
   ultimovalorvm2 = velocidad;
   if (modo == ida) {
     adelante(velocidad);
-    delay(retardo);
-    detener();
+    //delay(retardo);
+    //detener();
   } else if (modo == regreso) {
     retroceso(velocidad);
-    delay(retardo);
-    detener();
+    //delay(retardo);
+    //detener();
   }
 }
 
@@ -358,12 +378,12 @@ void retroceder(int retardo, int modo, int velocidad) {
   ultimovalorvm2 = velocidad;
   if (modo == regreso) {
     adelante(velocidad);
-    delay(retardo);
-    detener();
+    //delay(retardo);
+    //detener();
   } else if (modo == ida) {
     retroceso(velocidad);
-    delay(retardo);
-    detener();
+    //delay(retardo);
+    //detener();
   }
 }
 
@@ -373,12 +393,12 @@ void girarderecha(int retardo, int modo, int velocidad) {
   ultimovalorvm2 = velocidad;
   if (modo == regreso) {
     giroizquierda(velocidad);
-    delay(retardo);
-    detener();
+    //delay(retardo);
+    //detener();
   } else if (modo == ida) {
     giroderecha(velocidad);
-    delay(retardo);
-    detener();
+    //delay(retardo);
+    //detener();
   }
 }
 
@@ -388,12 +408,12 @@ void girarizquierda(int retardo, int modo, int velocidad) {
   ultimovalorvm2 = velocidad;
   if (modo == regreso) {
     giroderecha(velocidad);
-    delay(retardo);
-    detener();
+    //delay(retardo);
+    //detener();
   } else if (modo == ida) {
     giroizquierda(velocidad);
-    delay(retardo);
-    detener();
+    //delay(retardo);
+    //detener();
   }
 }
 
@@ -411,38 +431,38 @@ void continuar() {
 }
 
 void adelante(int velocidad) {
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
+  digitalWrite(IN1, 0);
+  digitalWrite(IN2, 1);
+  digitalWrite(IN3, 0);
+  digitalWrite(IN4, 1);
   analogWrite(vm1, velocidad);
   analogWrite(vm2, velocidad);
 
 }
 
 void retroceso (int velocidad) {
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, HIGH);
-  digitalWrite(IN4, LOW);
+  digitalWrite(IN1, 1);
+  digitalWrite(IN2, 0);
+  digitalWrite(IN3, 1);
+  digitalWrite(IN4, 0);
   analogWrite(vm2, velocidad);
   analogWrite(vm1, velocidad);
 }
 
 void giroizquierda(int velocidad) {
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
+  digitalWrite(IN1, 1);
+  digitalWrite(IN2, 0);
+  digitalWrite(IN3, 0);
+  digitalWrite(IN4, 1);
   analogWrite(vm2, velocidad);
   analogWrite(vm1, velocidad);
 }
 
 void giroderecha(int velocidad) {
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
-  digitalWrite(IN3, HIGH);
-  digitalWrite(IN4, LOW);
+  digitalWrite(IN1, 0);
+  digitalWrite(IN2, 1);
+  digitalWrite(IN3, 1);
+  digitalWrite(IN4, 0);
   analogWrite(vm2, velocidad);
   analogWrite(vm1, velocidad);
 }
@@ -740,7 +760,7 @@ void connect() {
   while (!client.connect(clientID, mqttUserName, mqttPass)) {
     Serial.print(".");
     digitalWrite(WIFICONled, 0);
-    delay(5000);
+    delay(2000);
   }
   Serial.println("\nMQTT broker nconnected!");
   digitalWrite(WIFICONled, 1);
