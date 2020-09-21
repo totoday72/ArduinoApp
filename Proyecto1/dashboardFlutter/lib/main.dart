@@ -231,6 +231,18 @@ class _MyDashboardState extends State<MyHomePage> {
     setState(() {
       this.mqttChannels[to]["conectado"] = false;
     });
+
+    if (to == ARDUINO_TOPIC) {
+      List campos = this.mqttChannels[to]["campos"];
+      campos[0]["valor"] = null;
+      campos[1]["valor"] = "";
+      campos[2]["valor"] = "";
+      campos[3]["valor"] = "0";
+      campos[4]["valor"] = "0";
+      campos[5]["valor"] = "0";
+      campos[6]["valor"] = null;
+      campos[7]["valor"] = null;
+    }
   }
 
   void onMqttSubscribeFailed(to) {
@@ -273,18 +285,17 @@ class _MyDashboardState extends State<MyHomePage> {
 
             // paquetes entregados;
             case "field3":
-              if (valorNuevo == null) {
+              if (valorNuevo == null || valorNuevo == "-1") {
                 valorNuevo = 0;
+              } else {
+                notificarLlegada = true;
               }
               valorNuevo = int.parse(valorActual.toString()) +
                   int.parse(valorNuevo.toString());
-              if (int.parse(valorNuevo.toString()) > 0) {
-                notificarLlegada = true;
-              }
               break;
             // obstaculos;
             case "field4":
-              if (valorNuevo == null) {
+              if (valorNuevo == null || valorNuevo == "-1") {
                 valorNuevo = 0;
               }
               valorNuevo = int.parse(valorActual.toString()) +
@@ -293,7 +304,9 @@ class _MyDashboardState extends State<MyHomePage> {
               break;
             // peso
             case "field5":
-              if (valorNuevo != null) {
+              if (valorNuevo == null || valorNuevo == "-1") {
+                valorNuevo = valorActual;
+              } else {
                 this.showNotification("Nuevo paquete",
                     "Con peso $valorNuevo a las ${formatearFecha(DateTime.now(), DATE_FORMAT)}.");
               }
@@ -316,12 +329,49 @@ class _MyDashboardState extends State<MyHomePage> {
         }
 
         if (notificarLlegada) {
+          var obstaculos = "0";
+          var peso = "0";
+          var tiempoEntrega = formatearFecha(DateTime.now(), DATE_FORMAT);
+
+          for (var item in campos) {
+            if (item["key"] == "field4") {
+              obstaculos = item["valor"].toString();
+              setState(() {
+                item["valor"] = 0;
+              });
+            }
+            if (item["key"] == "field5") {
+              peso = item["valor"].toString();
+              setState(() {
+                item["valor"] = 0;
+              });
+            }
+            if (item["key"] == "field6") {
+              tiempoEntrega = item["valor"];
+            }
+          }
+
           this.showNotification("Paquete entregado",
-              "Con peso 1, 2 obstaculos encontrados a las ${formatearFecha(DateTime.now(), DATE_FORMAT)} ");
+              "Con peso $peso, $obstaculos obstaculos encontrados a las $tiempoEntrega ");
         }
         if (notificarRetorno) {
+          var obstaculos = 0;
+          var tiempoEntrega = formatearFecha(DateTime.now(), DATE_FORMAT);
+
+          for (var item in campos) {
+            if (item["key"] == "field4") {
+              obstaculos = item["valor"];
+              setState(() {
+                item["valor"] = 0;
+              });
+            }
+            if (item["key"] == "field7") {
+              tiempoEntrega = item["valor"];
+            }
+          }
+
           this.showNotification("Esperando paquete",
-              "El carro retorno al punto de inicio a las ${formatearFecha(DateTime.now(), DATE_FORMAT)}, 10 obstaculos encontrados,");
+              "El carro retorno al punto de inicio a las $tiempoEntrega, $obstaculos obstaculos encontrados,");
         }
 
         break;
