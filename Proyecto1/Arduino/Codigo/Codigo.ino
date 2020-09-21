@@ -212,7 +212,7 @@ void loop() {
         publicarEncamino("EnRecorrido:", "HaciaPuntoEntrega", "-1", "-1", String(peso), "-1", "-1");
         hacerRecorrido(ida);
         while (peso > pesominimo) {
-          peso = pesar();
+          peso = pesar();-
           ; //mientras tenga peso no se mueve
         }
         publicarEncamino("EnRecorrido:", "RegresoaBuzon", "-1", "-1", "-1", "-1", "-1");
