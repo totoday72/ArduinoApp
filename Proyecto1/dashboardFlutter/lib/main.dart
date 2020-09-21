@@ -453,7 +453,7 @@ class _MyDashboardState extends State<MyHomePage> {
                     }),
                 Text("Mqtt"),
                 Switch(
-                  value: false,
+                  value: carritoEncendido,
                   onChanged: (val) {
                     final builder = MqttClientPayloadBuilder();
                     builder.addString(val ? "1" : "0");
@@ -461,6 +461,10 @@ class _MyDashboardState extends State<MyHomePage> {
                     print(CARRO_TOPIC);
                     this.client.publishMessage(
                         CARRO_TOPIC, MqttQos.atMostOnce, builder.payload);
+
+                    setState(() {
+                      carritoEncendido = val;
+                    });
                   },
                 ),
                 Text("Carro")
