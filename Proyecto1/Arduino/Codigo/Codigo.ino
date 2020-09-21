@@ -169,32 +169,38 @@ void setup() {
 //***************** LOOP ****************************
 bool publicadoInicio = false;
 void loop() {
-  if(!publicadoInicio){
+  if (!publicadoInicio) {
     publicarPuntoPartida("EnPuntodepartida:", "EnReposo", "-1", String(obstaculosEncontrados), "-1", "-1", "-1");
-    publicadoInicio=true;
+    publicadoInicio = true;
   }
   //client.loop();
   //hacerRecorrido(ida);
   //hacerRecorrido(regreso);
-  peso = pesar();
-  if (pesominimo < peso) {
-    publicarEncamino("EnRecorrido:", "HaciaPuntoEntrega", "-1", "-1", String(peso), "-1", "-1");
-    hacerRecorrido(ida);
-    peso = pesar();
-    while (peso > pesominimo) {
-      Serial.println("Esperaaaaaandoooo");
+  if (!client.connected()) {
+    connect();
+  } else {
+    if (activado == "1") { //pesominimo
       peso = pesar();
-      digitalWrite(WIFICONled, 0);
-      delay(200);
-      digitalWrite(WIFICONled, 1);
-      delay(200);
-      digitalWrite(WIFICONled, 0);
-      delay(200);
-      digitalWrite(WIFICONled, 1)
-      ; //mientras tenga peso no se mueve
+      if (pesominimo < peso) {
+        publicarEncamino("EnRecorrido:", "HaciaPuntoEntrega", "-1", "-1", String(peso), "-1", "-1");
+        hacerRecorrido(ida);
+        peso = pesar();
+        while (peso > pesominimo) {
+          Serial.println("Esperaaaaaandoooo");
+          peso = pesar();
+          digitalWrite(WIFICONled, 0);
+          delay(200);
+          digitalWrite(WIFICONled, 1);
+          delay(200);
+          digitalWrite(WIFICONled, 0);
+          delay(200);
+          digitalWrite(WIFICONled, 1)
+          ; //mientras tenga peso no se mueve
+        }
+        publicarEncamino("EnRecorrido:", "RegresoaBuzon", "-1", "-1", "-1", "-1", "-1");
+        hacerRecorrido(regreso);
+      }
     }
-    publicarEncamino("EnRecorrido:", "RegresoaBuzon", "-1", "-1", "-1", "-1", "-1");
-    hacerRecorrido(regreso);
   }
   /*LeerValor();
     //delay(postingInterval);  // <- fixes some issues with WIFICON stability
@@ -221,8 +227,8 @@ void loop() {
     }
     }
   */
-  //LeerValor();
-  delay(1000);
+  LeerValor();
+
 }
 
 
@@ -299,12 +305,12 @@ void hacerRecorrido(int modo) { //const int lineaizq = 9; //const int lineacentr
     if (respuestasensor == 1) {
       detener();
       delay(43);//43
-      
+
     } else {
       delay(40);
-      
+
     }
-    
+
 
     //respuestasensor = verificarSensores();
 
@@ -765,7 +771,7 @@ void connect() {
 //***************** WIFICON ****************************
 
 //========================================= messageReceived
-void messageReceived(String &topic, String &payload) {
+void messageReceived(String & topic, String & payload) {
   Serial.println("incoming: " + topic + " - " + payload);
   activado = payload;
   Serial.print("El circuito esta:");
