@@ -46,16 +46,17 @@ unsigned long lastUploadedTime = 0;
 unsigned long tiempoviaje = 0;
 const int ida = 1; //cosntante que indica un viaje de ida
 const int regreso = 2;//cosntante que indica un viaje de regreso
-const int velocidadrapida = 255; //velocidad maxima para los motores
+const int velocidadultrarapida = 255; //velocidad maxima para los motores
+const int velocidadrapida = 200; //velocidad maxima para los motores
 const int velocidadmedia = 160; // velocidad media para los motores
-const int velocidadlenta = 200; // velocidad lenta para los motores
+const int velocidadlenta = 140; // velocidad lenta para los motores
 int ultimoladovistolinea = 0; // el lado en que se vio la linea por ultima vez
 int ultimovalorvm1 = 0; //indica con que velocidad estaban los motores antes de detectar un obstaculo
 int ultimovalorvm2 = 0;
 int obstaculosEncontrados = 0; //cantidad de obstaculos encontrados de ida o de regreso
-const int valorlineanegra = 1; //valor de la linea negra
+const int valorlineanegra = 0; //valor de la linea negra 1; negro 0 blanco
 float peso = 0;//cosntante que dice cuanto es el peso
-const int retraso = 5;
+const int retraso = 1;
 //****************Variables a MANDAR***********************
 
 //***************** INICIO DE DEFINICIONES DE VARIABLES PARA CONEXION ****************************
@@ -102,7 +103,7 @@ String subscribeTopicFor_Command_1 = "channels/" + String(suscribeChannelID_1) +
 //long suscribeChannelID_2 = 123456;
 //String subscribeTopicFor_Command_2="channels/"+String(suscribeChannelID_2)+"/subscribe/fields/field1";   // motor
 
-const unsigned long postingInterval = 20L * 1000L; // Post data every 20 seconds.
+const unsigned long postingInterval = 16L * 1000L; // Post data every 20 seconds.
 //***************** FIN DE DEFINICIONES DE VARIABLES PARA CONEXION ****************************
 
 //***************** SETUP ****************************
@@ -111,6 +112,9 @@ void setup() {
   // put your setup code here, to run once:
   pinMode(triggerUltrasonico, OUTPUT);
   pinMode(echoUltrasonico, INPUT);
+  pinMode(lineaizq, INPUT);
+  pinMode(lineacentro, INPUT);
+  pinMode(lineader, INPUT);
   Serial.begin(9600);
   pinMode (IN1, OUTPUT);
   pinMode (IN2, OUTPUT);
@@ -124,7 +128,7 @@ void setup() {
   //iNICIALIZACIÓN DE CARGA
   scale.begin(cargaDOUT, cargaSCK);
   scale.set_scale(198837.f);                      // this estadodePuerta is obtained by calibrating the scale with known weights; see the README for details
-  //scale.tare();               // reset the scale to 0
+  scale.tare();               // reset the scale to 0
 
   setEspBaudRate(ESP_BAUDRATE);
   WIFICON.print("AT+RST\r\n");
@@ -145,10 +149,10 @@ void setup() {
   }
   //wifiSerial("AT+CWJAP =\"abc\", \"0123456789\"",800);
   Serial.println("found it!");
-  WiFi.begin(ssid1, pass); // Note: Local domain names (e.g. "Computer.local" on OSX) are not supported by Arduino. You need to set the IP address directly.
+  WiFi.begin(ssid2, pass); // Note: Local domain names (e.g. "Computer.local" on OSX) are not supported by Arduino. You need to set the IP address directly.
   while (WiFi.status() != WL_CONNECTED) {
     Serial.println("Connecting to second SSID");
-    WiFi.begin(ssid2, pass);
+    WiFi.begin(ssid1, pass);
     delay(500);
   }
 
@@ -163,10 +167,35 @@ void setup() {
 
 //***************** LOOP ****************************
 //***************** LOOP ****************************
-
+bool publicadoInicio = false;
 void loop() {
+  if(!publicadoInicio){
+    publicarPuntoPartida("EnPuntodepartida:", "EnReposo", "-1", String(obstaculosEncontrados), "-1", "-1", "-1");
+    publicadoInicio=true;
+  }
   //client.loop();
-  hacerRecorrido(ida);
+  //hacerRecorrido(ida);
+  //hacerRecorrido(regreso);
+  peso = pesar();
+  if (pesominimo < peso) {
+    publicarEncamino("EnRecorrido:", "HaciaPuntoEntrega", "-1", "-1", String(peso), "-1", "-1");
+    hacerRecorrido(ida);
+    peso = pesar();
+    while (peso > pesominimo) {
+      Serial.println("Esperaaaaaandoooo");
+      peso = pesar();
+      digitalWrite(WIFICONled, 0);
+      delay(200);
+      digitalWrite(WIFICONled, 1);
+      delay(200);
+      digitalWrite(WIFICONled, 0);
+      delay(200);
+      digitalWrite(WIFICONled, 1)
+      ; //mientras tenga peso no se mueve
+    }
+    publicarEncamino("EnRecorrido:", "RegresoaBuzon", "-1", "-1", "-1", "-1", "-1");
+    hacerRecorrido(regreso);
+  }
   /*LeerValor();
     //delay(postingInterval);  // <- fixes some issues with WIFICON stability
     if (!client.connected()) {
@@ -177,12 +206,13 @@ void loop() {
       Serial.print("Peso agregado es de ");
       Serial.print(peso);
       Serial.println("Gramos");
-      if (peso > pesominimo) {
+      if (pesominimo < peso) {
         tiempoviaje = millis();
         ////se detiene String ubicacion, String estado, String paquetes, String obstaculos, String peso, String tiempoentrega, String tiemporetorno
         publicarEncamino("EnRecorrido:", "HaciaPuntoEntrega", "-1", "-1", String(peso), "-1", "-1");
         hacerRecorrido(ida);
         while (peso > pesominimo) {
+          peso = pesar();
           ; //mientras tenga peso no se mueve
         }
         publicarEncamino("EnRecorrido:", "RegresoaBuzon", "-1", "-1", "-1", "-1", "-1");
@@ -192,8 +222,10 @@ void loop() {
     }
   */
   //LeerValor();
-  delay(15000);
+  delay(1000);
 }
+
+
 //***************** LOOP ****************************
 //***************** LOOP ****************************
 int accionanterior = -1;
@@ -201,97 +233,51 @@ void hacerRecorrido(int modo) { //const int lineaizq = 9; //const int lineacentr
   accionanterior = -1;
   int respuestasensor = verificarSensores();
   if (modo == regreso) {
-    girarderecha(retraso, modo, velocidadlenta);
-    while (respuestasensor == 1) {
-      girarderecha(retraso, modo, velocidadlenta);
+    girarderecha(velocidadrapida);
+    delay(1000);
+    while (respuestasensor != 1) {
+      girarderecha(velocidadrapida);
       respuestasensor = verificarSensores();
     }
   }
-  respuestasensor = verificarSensores();
   while ( respuestasensor == 200) { //salir de zona de entrega o buzon
-    avanzar(retraso, modo, velocidadmedia); // se avanza por medio segundo
+    avanzar(velocidadlenta); // se avanza por medio segundo
     respuestasensor = verificarSensores();
     Serial.println("Estado de sensores while ==200:" + String(respuestasensor));
   }
   while (respuestasensor != 1) { // se coloca el sensor central en la linea.
-    girarderecha(retraso, modo, velocidadlenta); //se busca la linea girando hacia la derecha hasta encontrarla
+    girarderecha(velocidadlenta); //se busca la linea girando hacia la derecha hasta encontrarla
     respuestasensor = verificarSensores(); // se verifica que el sensor central este sobre la linea
     Serial.println("Estado de sensores While !=1:" + String(respuestasensor));
   }
 
-  while (true) { //mientras no llegue la entrega o al buzon.
+  while (respuestasensor != 200) { //mientras no llegue la entrega o al buzon.
     respuestasensor = verificarSensores();
     if (respuestasensor == 0) { // si la linea se detecta con el sensor del lado izquierdo
-      if (modo == ida) { // si va de ida, gira a la izquierda
-        girarizquierda(retraso, modo, velocidadlenta);
-        //avanzar(retraso, modo, velocidadmedia);
-        ultimoladovistolinea = 0;
-        accionanterior = 0;
-      } else if (modo == regreso) { // si va de regreso, gira a la derecha
-        girarderecha(retraso, modo, velocidadlenta);
-        //avanzar(retraso, modo, velocidadmedia);
-        ultimoladovistolinea = 0;
-        accionanterior = 0;
+      ultimoladovistolinea = 0;
+      girarizquierda(velocidadrapida);
+    } else if (respuestasensor == 2) {
+      ultimoladovistolinea = 2;
+      girarderecha(velocidadrapida);
+    } else if (respuestasensor == 1) {
+      ultimoladovistolinea = 1;
+      avanzar(velocidadrapida);
+    } else if (respuestasensor == -1) {
+      if (ultimoladovistolinea == 0) {
+        girarizquierda(velocidadrapida);
+      } else if (ultimoladovistolinea == 2) {
+        girarderecha(velocidadrapida);
+      } else if (ultimoladovistolinea == 1) {
+        avanzar(velocidadmedia);
       }
+      //Serial.println("estoy en -1" + String(ultimoladovistolinea));
     }
-    else if (respuestasensor == 2) {
-      if (modo == ida) {
-        girarderecha(retraso, modo, velocidadlenta);
-        //avanzar(retraso, modo, velocidadmedia);
-        ultimoladovistolinea = 2;
-        accionanterior = 2;
-      } else if (modo == regreso) {
-        girarizquierda(retraso, modo, velocidadlenta);
-        //avanzar(retraso, modo, velocidadmedia);
-        ultimoladovistolinea = 2;
-        accionanterior = 2;
-      }
-    }
-    else if (respuestasensor == 1) {
-      if (modo == ida) {
-        avanzar(retraso, modo, velocidadmedia);
-        accionanterior = 1;
-      } else if (modo == regreso) {
-        retroceder(retraso, modo, velocidadmedia);
-        accionanterior = 1;
-      }
-    } else
-
-      //aca se define cuando estan dos de los sensores en negro
-      if (respuestasensor == 50) { //hay un cruce de 90 a la izq
-        while (respuestasensor != 1 && respuestasensor != 200) {
-          girarizquierda(retraso, modo, velocidadlenta);
-          respuestasensor = verificarSensores();
-          Serial.println("Buscando linea en centro girando a la izquierda");
-        }
-
-      }
-      else if (respuestasensor == 100) {//hay un cruce de 90 a la deracha
-        while (respuestasensor != 1 && respuestasensor != 200) {
-          girarderecha(retraso, modo, velocidadlenta);
-          respuestasensor = verificarSensores();
-          Serial.println("Buscando linea en centro girando a la derecha");
-        }
-      }
-
-    //aca se define cuando no se encuentra la linea en ningun sensor.
-      else if (respuestasensor == -1) {
-        if (ultimoladovistolinea == 0) {
-          girarizquierda(retraso, modo, velocidadmedia);
-          //avanzar(retraso, modo, velocidadlenta);
-          accionanterior = -1;
-        } else if (ultimoladovistolinea == 2) {
-          girarderecha(retraso, modo, velocidadlenta);
-          //avanzar(retraso, modo, velocidadmedia);
-          accionanterior = -1;
-        }
-        Serial.println("estoy en -1" + String(ultimoladovistolinea));
-      }
-    if (distanciaminima > medirDistancia()) { //si se detecta un objeto en el camino.
+    float distanciam = medirDistancia();
+    if (distanciaminima > distanciam) { //si se detecta un objeto en el camino.
       detener(); //se detiene String ubicacion, String estado, String paquetes, String obstaculos, String peso, String tiempoentrega, String tiemporetorno
-      //publicarHayObstaculo("EnRecorrido:", "DetenidoObstaculo", "-1", "-1", "-1", "-1", "-1" ); //publica obstaculo falta como enviar la ubicacion
+      publicarHayObstaculo("EnRecorrido:", "DetenidoObstaculo", "-1", "-1", "-1", "-1", "-1" ); //publica obstaculo falta como enviar la ubicacion
       obstaculosEncontrados++;
-      float distanciam = medirDistancia();
+
       while (distanciaminima > distanciam) { //mientras no se quite el obstaculo. no va a seguir
         Serial.println("obstaculos:" + String(obstaculosEncontrados));
         distanciam = medirDistancia();
@@ -299,32 +285,41 @@ void hacerRecorrido(int modo) { //const int lineaizq = 9; //const int lineacentr
       }
       if (modo == ida) {
         Serial.println("publica en HaciaPuntoEntrega");
-        //publicarEncamino("EnRecorrido:", "HaciaPuntoEntrega", "-1", "-1", "-1", "-1", "-1");
+        publicarEncamino("EnRecorrido:", "HaciaPuntoEntrega", "-1", "-1", "-1", "-1", "-1");
       } else {
         Serial.println("regreso a buzon");
-        //publicarEncamino("EnRecorrido:", "RegresoaBuzon", "-1", "-1", "-1", "-1", "-1");
+        publicarEncamino("EnRecorrido:", "RegresoaBuzon", "-1", "-1", "-1", "-1", "-1");
       }
       continuar(); // si ya no hay obstaculo continua solo encendiendo los motores
+    }
+
+    // verifica el estado de los sensores
+    //Serial.println("Estado de sensores While!= 200:" + String(respuestasensor));
+    detener();
+    if (respuestasensor == 1) {
+      detener();
+      delay(43);//43
+      
+    } else {
+      delay(40);
       
     }
-    if(respuestasensor == 200 && accionanterior != -1){
-      break;  
-    }
-    //respuestasensor = verificarSensores();// verifica el estado de los sensores
-    Serial.println("Estado de sensores While!= 200:" + String(respuestasensor));
-    //delay(7000);
+    
+
+    //respuestasensor = verificarSensores();
 
   }
+
   detener();//String ubicacion, String estado, String paquetes, String obstaculos, String peso, String tiempoentrega, String tiemporetorno
   if (modo == ida) {
     Serial.println("publica EnPuntoEntrega");
-    //publicarPuntoEntrega("EnPuntoEntrega:", "EnReposo", "1", String(obstaculosEncontrados), "-1", String(tiempoviaje), "-1"); //publica obstaculo falta como enviar la ubicacion
+    publicarPuntoEntrega("EnPuntoEntrega:", "EnReposo", "1", String(obstaculosEncontrados), "-1", String(tiempoviaje / 1000), "-1"); //publica obstaculo falta como enviar la ubicacion
     peso = 0;
     obstaculosEncontrados = 0;
     tiempoviaje = 0;
   } else {
     Serial.println("publica EnPuntodepartida");
-    //publicarPuntoPartida("EnPuntodepartida:", "EnReposo", "-1", String(obstaculosEncontrados), "-1", "-1", String(tiempoviaje));
+    publicarPuntoPartida("EnPuntodepartida:", "EnReposo", "-1", String(obstaculosEncontrados), "-1", "-1", String(tiempoviaje / 1000));
     peso = 0;
     obstaculosEncontrados = 0;
     tiempoviaje = 0;
@@ -336,8 +331,8 @@ int verificarSensores() {
   int izq = digitalRead(lineaizq);
   int cnt = digitalRead(lineacentro);
   int der = digitalRead(lineader);
-  Serial.println("izq" + String(izq) + ":cnt" + String(cnt) + ":der" + String(der));
-  delay(retraso);
+  //Serial.println("izq" + String(izq) + ":cnt" + String(cnt) + ":der" + String(der));
+  //delay(500);
   if (izq == valorlineanegra && der == valorlineanegra && cnt == valorlineanegra) { //los tres tienen negro al mismo tiempo
     return 200; // indica que llego a punto de entrega
   }
@@ -348,73 +343,41 @@ int verificarSensores() {
   } else if ( izq != valorlineanegra && cnt == valorlineanegra && der != valorlineanegra) { // la linea esta en el sensor central
     return 1;
   } else if (izq == valorlineanegra && cnt == valorlineanegra && der != valorlineanegra) { //hay un cruce de 90 a la izq
-    return 50;
+    return 0;
   } else if (izq != valorlineanegra && cnt == valorlineanegra && der == valorlineanegra) { //hay un cruce de 90 a la deracha
-    return 100;
+    return 2;
   } else { // la linea no esta en ningun sensor, se procede a dar una vuelta para ver donde hay linea.
     return -1;
   }
   return -1;
 }
 
-void avanzar(int retardo, int modo, int velocidad) {
+void avanzar(int velocidad) {
   Serial.println("Avanzando:" + String(velocidad));
   ultimovalorvm1 = velocidad;
   ultimovalorvm2 = velocidad;
-  if (modo == ida) {
-    adelante(velocidad);
-    //delay(retardo);
-    //detener();
-  } else if (modo == regreso) {
-    retroceso(velocidad);
-    //delay(retardo);
-    //detener();
-  }
+  adelante(velocidad);
 }
 
-void retroceder(int retardo, int modo, int velocidad) {
+void retroceder(int velocidad) {
   Serial.println("Retrocede:" + String(velocidad));
   ultimovalorvm1 = velocidad;
   ultimovalorvm2 = velocidad;
-  if (modo == regreso) {
-    adelante(velocidad);
-    //delay(retardo);
-    //detener();
-  } else if (modo == ida) {
-    retroceso(velocidad);
-    //delay(retardo);
-    //detener();
-  }
+  retroceso(velocidad);
 }
 
-void girarderecha(int retardo, int modo, int velocidad) {
+void girarderecha(int velocidad) {
   Serial.println("Gira derecga:" + String(velocidad));
   ultimovalorvm1 = velocidad;
   ultimovalorvm2 = velocidad;
-  if (modo == regreso) {
-    giroizquierda(velocidad);
-    //delay(retardo);
-    //detener();
-  } else if (modo == ida) {
-    giroderecha(velocidad);
-    //delay(retardo);
-    //detener();
-  }
+  giroderecha(velocidad);
 }
 
-void girarizquierda(int retardo, int modo, int velocidad) {
+void girarizquierda(int velocidad) {
   Serial.println("Gira izquierda:" + String(velocidad));
   ultimovalorvm1 = velocidad;
   ultimovalorvm2 = velocidad;
-  if (modo == regreso) {
-    giroderecha(velocidad);
-    //delay(retardo);
-    //detener();
-  } else if (modo == ida) {
-    giroizquierda(velocidad);
-    //delay(retardo);
-    //detener();
-  }
+  giroizquierda(velocidad);
 }
 
 // ******************** ACCIONES CON LOS MOTORES ***************************
@@ -457,13 +420,30 @@ void giroizquierda(int velocidad) {
   analogWrite(vm2, velocidad);
   analogWrite(vm1, velocidad);
 }
-
 void giroderecha(int velocidad) {
   digitalWrite(IN1, 0);
   digitalWrite(IN2, 1);
   digitalWrite(IN3, 1);
   digitalWrite(IN4, 0);
   analogWrite(vm2, velocidad);
+  analogWrite(vm1, velocidad);
+}
+
+void motorizquierda(int velocidad) {
+  digitalWrite(IN1, 0);
+  digitalWrite(IN2, 0);
+  digitalWrite(IN3, 0);
+  digitalWrite(IN4, 1);
+  analogWrite(vm2, velocidad);
+  analogWrite(vm1, 0);
+}
+
+void motorderecha(int velocidad) {
+  digitalWrite(IN1, 0);
+  digitalWrite(IN2, 1);
+  digitalWrite(IN3, 0);
+  digitalWrite(IN4, 0);
+  analogWrite(vm2, 0);
   analogWrite(vm1, velocidad);
 }
 // ******************** ACCIONES CON LOS MOTORES ***************************
@@ -484,11 +464,14 @@ volverapublicar1:
   while (millis() - lastUploadedTime < postingInterval) { // The uploading interval must be > 15 seconds
     ; // no hace nada hasta que sean mas de 15 segundos para publicar
   }
-  String dataText = String("field1=" + String(peso)); //+ "&field2=" + String(sensorValue_2));
+  connect();
+  String dataText = String("field1=" + ubicacion + "&field2=" + estado + "&field3=" + paquetes + "&field4=" + obstaculos + "&field5=" + peso );// + "&field6=" + tiempoentrega );//+ "&field7=" + tiemporetorno);
   //String dataText = String("field1=" + String(sensorValue_1)+ "&field2=" + String(sensorValue_2)+"&field3=" + String(sensorValue_3)); // example for publish tree sensors
   result = client.publish(publishTopic, dataText);
   if (!result) {
+    Serial.println("Erroro publicando");
     goto volverapublicar1;
+
   }
   digitalWrite(AlertLed, 1);
   delay(150);
@@ -506,10 +489,12 @@ volverapublicar2:
   while (millis() - lastUploadedTime < postingInterval) { // The uploading interval must be > 15 seconds
     ; // no hace nada hasta que sean mas de 15 segundos para publicar
   }
-  String dataText = String("field1=" + String(peso)); //+ "&field2=" + String(sensorValue_2));
+  connect();
+  String dataText = String("field1=" + ubicacion + "&field2=" + estado + "&field3=" + paquetes + "&field4=" + obstaculos + "&field5=" + peso );// + "&field6=" + tiempoentrega );//+ "&field7=" + tiemporetorno);
   //String dataText = String("field1=" + String(sensorValue_1)+ "&field2=" + String(sensorValue_2)+"&field3=" + String(sensorValue_3)); // example for publish tree sensors
   result = client.publish(publishTopic, dataText);
   if (!result) {
+    Serial.println("Erroro publicando");
     goto volverapublicar2;
   }
   if (result) Serial.println("Data has been published succesfully");
@@ -525,15 +510,20 @@ volverapublicar2:
   return result;
 }
 void publicarEncamino(String ubicacion, String estado, String paquetes, String obstaculos, String peso, String tiempoentrega, String tiemporetorno) {
+  tiempoentrega = "data";
   boolean result = false;
 volverapublicar3:
+
   while (millis() - lastUploadedTime < postingInterval) { // The uploading interval must be > 15 seconds
     ; // no hace nada hasta que sean mas de 15 segundos para publicar
   }
-  String dataText = String("field1=" + String(peso)); //+ "&field2=" + String(sensorValue_2));
+  connect();
+  String dataText = String("field1=" + ubicacion + "&field2=" + estado + "&field3=" + paquetes + "&field4=" + obstaculos + "&field5=" + peso );// + "&field6=" + tiempoentrega );//+ "&field7=" + tiemporetorno);
   //String dataText = String("field1=" + String(sensorValue_1)+ "&field2=" + String(sensorValue_2)+"&field3=" + String(sensorValue_3)); // example for publish tree sensors
   result = client.publish(publishTopic, dataText);
   if (!result) {
+    Serial.println(String (tiempoentrega));
+    Serial.println("Erroro publicando");
     goto volverapublicar3;
   }
   if (result) Serial.println("Data has been published succesfully");
@@ -556,10 +546,13 @@ volverapublicar4:
   while (millis() - lastUploadedTime < postingInterval) { // The uploading interval must be > 15 seconds
     ; // no hace nada hasta que sean mas de 15 segundos para publicar
   }
-  String dataText = String("field1=" + String(peso)); //+ "&field2=" + String(sensorValue_2));
+  connect();
+  digitalWrite(WIFICONled, 1);
+  String dataText = String("field1=" + ubicacion + "&field2=" + estado + "&field3=" + paquetes + "&field4=" + obstaculos + "&field5=" + peso );// + "&field6=" + tiempoentrega );//+ "&field7=" + tiemporetorno);
   //String dataText = String("field1=" + String(sensorValue_1)+ "&field2=" + String(sensorValue_2)+"&field3=" + String(sensorValue_3)); // example for publish tree sensors
   result = client.publish(publishTopic, dataText);
   if (!result) {
+    Serial.println("Erroro publicando");
     goto volverapublicar4;
   }
   if (result) Serial.println("Data has been published succesfully");
@@ -689,7 +682,7 @@ void LeerValor() {
 //***************** PESAR ****************************
 //***************** PESAR ****************************
 float pesar() {
-  float peso = (scale.get_units(10) * 454) - 327.17;
+  float peso = (scale.get_units(10) * 454);// - 327.17;
   Serial.print("Peso Minimo para activar el sistema: ");
   Serial.print(pesominimo);
   Serial.println(" Gramos");
