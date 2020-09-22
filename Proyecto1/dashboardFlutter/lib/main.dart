@@ -275,6 +275,7 @@ class _MyDashboardState extends State<MyHomePage> {
         final campos = localTopic["campos"] as List;
         var notificarLlegada = false;
         var notificarRetorno = false;
+        var vinoObstaculos = false;
 
         for (Map item in campos) {
           final key = item["key"];
@@ -297,6 +298,8 @@ class _MyDashboardState extends State<MyHomePage> {
             case "field4":
               if (valorNuevo == null || valorNuevo == "-1") {
                 valorNuevo = 0;
+              } else {
+                vinoObstaculos = true;
               }
               valorNuevo = int.parse(valorActual.toString()) +
                   int.parse(valorNuevo.toString());
@@ -346,15 +349,14 @@ class _MyDashboardState extends State<MyHomePage> {
                 item["valor"] = 0;
               });
             }
-            if (item["key"] == "field6") {
+            if (item["key"] == "created_at") {
               tiempoEntrega = item["valor"];
             }
           }
 
           this.showNotification("Paquete entregado",
               "Con peso $peso, $obstaculos obstaculos encontrados a las $tiempoEntrega ");
-        }
-        if (notificarRetorno) {
+        } else if (vinoObstaculos) {
           var obstaculos = 0;
           var tiempoEntrega = formatearFecha(DateTime.now(), DATE_FORMAT);
 
@@ -365,7 +367,7 @@ class _MyDashboardState extends State<MyHomePage> {
                 item["valor"] = 0;
               });
             }
-            if (item["key"] == "field7") {
+            if (item["key"] == "created_at") {
               tiempoEntrega = item["valor"];
             }
           }
