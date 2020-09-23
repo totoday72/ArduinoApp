@@ -58,6 +58,10 @@ class MyHomePage extends StatefulWidget {
 class _MyDashboardState extends State<MyHomePage> {
   var testTopic = [];
 
+  DateTime tiempoSalida = DateTime.now(),
+      tiempoEntrega = DateTime.now(),
+      tiempoRetorno = DateTime.now();
+
   var isMqttConnected = false;
 
   static const DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
@@ -275,6 +279,7 @@ class _MyDashboardState extends State<MyHomePage> {
         final campos = localTopic["campos"] as List;
         var notificarLlegada = false;
         var notificarRetorno = false;
+        var notificarSalida = false;
         var vinoObstaculos = false;
 
         for (Map item in campos) {
@@ -303,15 +308,13 @@ class _MyDashboardState extends State<MyHomePage> {
               }
               valorNuevo = int.parse(valorActual.toString()) +
                   int.parse(valorNuevo.toString());
-
               break;
             // peso
             case "field5":
               if (valorNuevo == null || valorNuevo == "-1") {
                 valorNuevo = valorActual;
               } else {
-                this.showNotification("Nuevo paquete",
-                    "Con peso $valorNuevo a las ${formatearFecha(DateTime.now(), DATE_FORMAT)}.");
+                notificarSalida = true;
               }
               break;
             // tiempo en retornar
@@ -330,11 +333,43 @@ class _MyDashboardState extends State<MyHomePage> {
             item["valor"] = valorNuevo;
           });
         }
+        if (notificarSalida) {
+          var peso = "0";
+          var fecha = formatearFecha(DateTime.now(), DATE_FORMAT);
 
-        if (notificarLlegada) {
+          for (var item in campos) {
+            if (item["key"] == "field5") {
+              peso = item["valor"].toString();
+            }
+            if (item["key"] == "created_at") {
+              fecha = DateTime.parse(item["valor"]).toLocal().toString();
+            }
+          }
+
+          this.showNotification(
+              "Nuevo paquete", "Con peso $peso a las $fecha.");
+
+          // reseteo tiempos
+          this.tiempoSalida = DateTime.now();
+          this.tiempoEntrega = DateTime.now();
+          this.tiempoRetorno = DateTime.now();
+
+          // reseteo obstaculos
+          for (var item in campos) {
+            if (item["key"] == "field4" ||
+                item["key"] == "field6" ||
+                item["key"] == "field7") {
+              setState(() {
+                item["valor"] = "0";
+              });
+            }
+          }
+        } else if (notificarLlegada) {
           var obstaculos = "0";
           var peso = "0";
-          var tiempoEntrega = formatearFecha(DateTime.now(), DATE_FORMAT);
+          var fecha = formatearFecha(DateTime.now(), DATE_FORMAT);
+
+          this.tiempoEntrega = DateTime.now();
 
           for (var item in campos) {
             if (item["key"] == "field4") {
@@ -349,26 +384,49 @@ class _MyDashboardState extends State<MyHomePage> {
                 item["valor"] = 0;
               });
             }
+            if (item["key"] == "field6") {
+              setState(() {
+                item["valor"] = this
+                    .tiempoEntrega
+                    .difference(this.tiempoSalida)
+                    .inSeconds
+                    .toString();
+                ;
+              });
+            }
             if (item["key"] == "created_at") {
-              tiempoEntrega = item["valor"];
+              fecha = DateTime.parse(item["valor"]).toLocal().toString();
+              ;
             }
           }
 
           this.showNotification("Paquete entregado",
-              "Con peso $peso, $obstaculos obstaculos encontrados a las $tiempoEntrega ");
+              "Con peso $peso, $obstaculos obstaculos encontrados a las $fecha ");
         } else if (vinoObstaculos) {
+          // cuando llega al punto inicio nuevamente
           var obstaculos = 0;
           var tiempoEntrega = formatearFecha(DateTime.now(), DATE_FORMAT);
+          this.tiempoRetorno = DateTime.now();
 
           for (var item in campos) {
             if (item["key"] == "field4") {
               obstaculos = item["valor"];
-              setState(() {
-                item["valor"] = 0;
-              });
+              // setState(() {
+              //   item["valor"] = 0;
+              // });
             }
             if (item["key"] == "created_at") {
-              tiempoEntrega = item["valor"];
+              tiempoEntrega =
+                  DateTime.parse(item["valor"]).toLocal().toString();
+            }
+            if (item["key"] == "field7") {
+              setState(() {
+                item["valor"] = this
+                    .tiempoRetorno
+                    .difference(this.tiempoEntrega)
+                    .inSeconds
+                    .toString();
+              });
             }
           }
 
