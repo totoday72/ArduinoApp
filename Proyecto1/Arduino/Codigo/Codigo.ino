@@ -29,8 +29,8 @@ const float distanciaminima = 5;
 #define WIFICONled 13 //LED is connected to Pin 11 of Arduino
 #define AlertLed 27
 String activado = "0";
-
-
+const int LedActivadoNegativo=A14;
+const int LedActivadoPositivo=A15;
 //***************** INICIO DE DEFINICIONES DE OTRAS VARIABLES ****************************
 HX711 scale;
 WiFiEspClient net;
@@ -115,6 +115,8 @@ void setup() {
   pinMode(lineaizq, INPUT);
   pinMode(lineacentro, INPUT);
   pinMode(lineader, INPUT);
+  pinMode(LedActivadoNegativo, OUTPUT);
+  pinMode(LedActivadoPositivo, OUTPUT);
   Serial.begin(9600);
   pinMode (IN1, OUTPUT);
   pinMode (IN2, OUTPUT);
@@ -125,6 +127,8 @@ void setup() {
   Serial.println("Iniciando ...");
   pinMode(WIFICONled, OUTPUT);
   digitalWrite(WIFICONled, 0);
+  digitalWrite(LedActivadoPositivo, 0);
+  digitalWrite(LedActivadoNegativo, 0);
   //iNICIALIZACIÓN DE CARGA
   scale.begin(cargaDOUT, cargaSCK);
   scale.set_scale(198837.f);                      // this estadodePuerta is obtained by calibrating the scale with known weights; see the README for details
@@ -676,6 +680,11 @@ void LeerValor() {
   int statusCode = ThingSpeak.getLastReadStatus();
   if (statusCode == 200) {
     activado = String(dato);
+    if(activado=="1"){
+      digitalWrite(LedActivadoPositivo, 1);
+    }else{
+      digitalWrite(LedActivadoPositivo, 0);
+    }
     Serial.println("Valor de la variable: " + String(activado) + " ---- ");
   }
   else {
