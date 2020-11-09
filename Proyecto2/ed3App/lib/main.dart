@@ -1,4 +1,11 @@
+import 'dart:convert';
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
+import './handler.dart';
+import 'package:charts_flutter/flutter.dart' as charts;
 
 void main() {
   runApp(MyApp());
@@ -9,7 +16,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'ED3 App',
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -20,13 +27,13 @@ class MyApp extends StatelessWidget {
         // or simply save your changes to "hot reload" in a Flutter IDE).
         // Notice that the counter didn't reset back to zero; the application
         // is not restarted.
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.orange,
         // This makes the visual density adapt to the platform that you run
         // the app on. For desktop platforms, the controls will be smaller and
         // closer together (more dense) than on mobile platforms.
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(title: 'ED3'),
     );
   }
 }
@@ -50,68 +57,202 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  var pp = new WaitingHandler();
 
-  void _incrementCounter() {
+  var isMqttConnected = false;
+  static const ARDUINO_TOPIC = "channels/1117472/subscribe/json";
+  final mqttChannels = {
+    ARDUINO_TOPIC: {
+      "conectado": false,
+      "nombre": "ARDUINO",
+      "campos": [
+        {"nombre": "Created at", "key": "created_at", "valor": null},
+        {"nombre": "Ubicación", "key": "field1", "valor": null},
+        {"nombre": "Estado", "key": "field2", "valor": null},
+        {"nombre": "Paquetes entregados", "key": "field3", "valor": 0},
+        {"nombre": "Obstaculos", "key": "field4", "valor": 0},
+        {"nombre": "Peso", "key": "field5", "valor": 0},
+        {"nombre": "Tiempo de entrega", "key": "field6", "valor": null},
+        {"nombre": "Tiempo de retorno", "key": "field7", "valor": null},
+      ],
+      "valor": null
+    }
+  };
+
+  static const MQTT_SERVER = "mqtt.thingspeak.com";
+  static const MQTT_CLIENT_ID = "movil_client";
+  static const MQTT_USER = "movil_user";
+  static const MQTT_KEY = "RXRMKFZ36GMDVRGB";
+
+  MqttServerClient client =
+      MqttServerClient.withPort(MQTT_SERVER, MQTT_CLIENT_ID, 1883);
+
+  void onMqttConnected() {
+    print("mqtt connected");
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      isMqttConnected = true;
+    });
+  }
+
+  void onMqttDisconnected() {
+    print("mqtt disconnected");
+    setState(() {
+      isMqttConnected = false;
+    });
+  }
+
+  void onMqttSubscribed(to) {
+    setState(() {
+      this.mqttChannels[to]["conectado"] = true;
+    });
+  }
+
+  void onMqttUnsubscribed(to) {
+    setState(() {
+      this.mqttChannels[to]["conectado"] = false;
+    });
+
+    if (to == ARDUINO_TOPIC) {
+      List campos = this.mqttChannels[to]["campos"];
+      campos[0]["valor"] = null;
+      campos[1]["valor"] = "";
+      campos[2]["valor"] = "";
+      campos[3]["valor"] = "0";
+      campos[4]["valor"] = "0";
+      campos[5]["valor"] = "0";
+      campos[6]["valor"] = null;
+      campos[7]["valor"] = null;
+    }
+  }
+
+  void onMqttSubscribeFailed(to) {
+    print(to);
+  }
+
+  Function(bool) mqttTopicSubscription(String topic) {
+    return (val) {
+      if (val) {
+        this.client.subscribe(topic, MqttQos.atMostOnce);
+      } else {
+        this.client.unsubscribe(topic);
+      }
+    };
+  }
+
+  void onMqttMessageReceived(List<MqttReceivedMessage<MqttMessage>> c) {
+    final MqttPublishMessage message = c[0].payload;
+    final payload =
+        MqttPublishPayload.bytesToStringAsString(message.payload.message);
+
+    final topic = c[0].topic;
+    final localTopic = this.mqttChannels[topic];
+
+    switch (topic) {
+      // case ARDUINO_TOPIC:
+      //   break;
+      default:
+        print("${localTopic["nombre"]}: $payload");
+    }
+
+    setState(() {
+      localTopic["valor"] = payload;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      body: Padding(
+        padding: EdgeInsets.all(15),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                    child: Column(
+                  children: [
+                    Text("MQTT"),
+                    Switch(
+                        value: this.isMqttConnected,
+                        onChanged: (to) async {
+                          try {
+                            if (to) {
+                              // client.logging(on: true);
+
+                              client.onConnected = this.onMqttConnected;
+                              client.onDisconnected = this.onMqttDisconnected;
+                              client.onSubscribed = this.onMqttSubscribed;
+                              client.onSubscribeFail =
+                                  this.onMqttSubscribeFailed;
+                              client.onUnsubscribed = this.onMqttUnsubscribed;
+                              final connMesage = MqttConnectMessage()
+                                  .authenticateAs(MQTT_USER, MQTT_KEY)
+                                  .withClientIdentifier(MQTT_CLIENT_ID)
+                                  .startClean();
+
+                              client.connectionMessage = connMesage;
+
+                              print("mqtt connecting...");
+                              await client.connect();
+                              // print(status);
+
+                              client.updates.listen(onMqttMessageReceived);
+                            } else {
+                              client.disconnect();
+                            }
+                          } catch (e) {
+                            print(e.toString());
+                          }
+                        }),
+                  ],
+                )),
+                Expanded(
+                    child: Column(children: [
+                  Text("ARDUINO "),
+                  Switch(
+                      value: this.mqttChannels[ARDUINO_TOPIC]["conectado"],
+                      onChanged: this.mqttTopicSubscription(ARDUINO_TOPIC)),
+                ]))
+              ],
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
+            Padding(
+              padding: EdgeInsets.all(20),
+              child: Text("MY_USERNAME"),
             ),
+            Expanded(child: TemperaturaChart()),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
+  }
+}
+
+class TemperaturaRegistrada {
+  final DateTime fecha;
+  final double valor;
+  TemperaturaRegistrada(this.fecha, this.valor);
+}
+
+class TemperaturaChart extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return new charts.TimeSeriesChart(
+      [
+        new charts.Series<TemperaturaRegistrada, DateTime>(
+            id: "dd",
+            data: [
+              TemperaturaRegistrada(DateTime(2020, 10, 1), 32.3),
+              TemperaturaRegistrada(DateTime(2020, 10, 2), 40.3),
+              TemperaturaRegistrada(DateTime(2020, 10, 3), 30.3),
+              TemperaturaRegistrada(DateTime(2020, 10, 4), 10.3),
+              TemperaturaRegistrada(DateTime(2020, 10, 5), 30.3),
+            ],
+            domainFn: (TemperaturaRegistrada d, _) => d.fecha,
+            measureFn: (TemperaturaRegistrada d, _) => d.valor)
+      ],
+      animate: false,
     );
   }
 }
