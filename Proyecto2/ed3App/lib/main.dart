@@ -203,6 +203,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Text("MES"))),
               Expanded(
                   child: FlatButton(
+                      color: Colors.blue,
                       onPressed: () {
                         setState(() {
                           request = "panel";

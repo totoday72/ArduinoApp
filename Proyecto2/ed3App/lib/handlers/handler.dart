@@ -2,7 +2,7 @@ import 'package:ed3App/temperatura_chart.dart';
 import 'package:flutter/cupertino.dart';
 
 class IHandler {
-  setNext(IHandler handler) {}
+  IHandler setNext(IHandler handler) {}
   handle(Object request) {}
 }
 
@@ -84,7 +84,7 @@ class CleaningWidget extends StatelessWidget {
                 ))
               ],
             ),
-            Expanded(child: TemperaturaChart())
+            // Expanded(child: TemperaturaChart())
           ],
         ),
       ),

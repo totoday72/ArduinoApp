@@ -8,19 +8,17 @@ class TemperaturaRegistrada {
 }
 
 class TemperaturaChart extends StatelessWidget {
+  final List<TemperaturaRegistrada> data;
+
+  TemperaturaChart(this.data);
+
   @override
   Widget build(BuildContext context) {
     return new charts.TimeSeriesChart(
       [
         new charts.Series<TemperaturaRegistrada, DateTime>(
             id: "dd",
-            data: [
-              TemperaturaRegistrada(DateTime(2020, 10, 1), 32.3),
-              TemperaturaRegistrada(DateTime(2020, 10, 2), 40.3),
-              TemperaturaRegistrada(DateTime(2020, 10, 3), 30.3),
-              TemperaturaRegistrada(DateTime(2020, 10, 4), 10.3),
-              TemperaturaRegistrada(DateTime(2020, 10, 5), 30.3),
-            ],
+            data: this.data,
             domainFn: (TemperaturaRegistrada d, _) => d.fecha,
             measureFn: (TemperaturaRegistrada d, _) => d.valor)
       ],
