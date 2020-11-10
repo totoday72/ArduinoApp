@@ -186,49 +186,37 @@ class _MyHomePageState extends State<MyHomePage> {
           Row(
             children: [
               Expanded(
-                  child: Column(
-                children: [
-                  Text("MQTT"),
-                  Switch(
-                      value: this.isMqttConnected,
-                      onChanged: (to) async {
-                        try {
-                          if (to) {
-                            // client.logging(on: true);
-
-                            client.onConnected = this.onMqttConnected;
-                            client.onDisconnected = this.onMqttDisconnected;
-                            client.onSubscribed = this.onMqttSubscribed;
-                            client.onSubscribeFail = this.onMqttSubscribeFailed;
-                            client.onUnsubscribed = this.onMqttUnsubscribed;
-                            final connMesage = MqttConnectMessage()
-                                .authenticateAs(MQTT_USER, MQTT_KEY)
-                                .withClientIdentifier(MQTT_CLIENT_ID)
-                                .startClean();
-
-                            client.connectionMessage = connMesage;
-
-                            print("mqtt connecting...");
-                            await client.connect();
-                            // print(status);
-
-                            client.updates.listen(onMqttMessageReceived);
-                          } else {
-                            client.disconnect();
-                          }
-                        } catch (e) {
-                          print(e.toString());
-                        }
-                      }),
-                ],
-              )),
+                  child: FlatButton(
+                      onPressed: () {
+                        setState(() {
+                          request = "dia";
+                        });
+                      },
+                      child: Text("DIA"))),
               Expanded(
-                  child: Column(children: [
-                Text("ARDUINO "),
-                Switch(
-                    value: this.mqttChannels[ARDUINO_TOPIC]["conectado"],
-                    onChanged: this.mqttTopicSubscription(ARDUINO_TOPIC)),
-              ]))
+                  child: FlatButton(
+                      onPressed: () {
+                        setState(() {
+                          request = "mes";
+                        });
+                      },
+                      child: Text("MES"))),
+              Expanded(
+                  child: FlatButton(
+                      onPressed: () {
+                        setState(() {
+                          request = "panel";
+                        });
+                      },
+                      child: Text("TODOS"))),
+              Expanded(
+                  child: FlatButton(
+                      onPressed: () {
+                        setState(() {
+                          request = "enfermos";
+                        });
+                      },
+                      child: Text("ENFERMOS")))
             ],
           ),
           Expanded(
