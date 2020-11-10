@@ -1,8 +1,9 @@
+import 'package:ed3App/handlers/panel.dart';
 import 'package:flutter/material.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 
-import './handler.dart';
+import './handlers/handler.dart';
 
 void main() {
   runApp(MyApp());
@@ -30,7 +31,10 @@ class MyApp extends StatelessWidget {
         // closer together (more dense) than on mobile platforms.
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: MyHomePage(title: 'ED3'),
+      home: DefaultTabController(
+        length: 2,
+        child: MyHomePage(title: 'ED3'),
+      ),
     );
   }
 }
@@ -54,7 +58,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  var pp = new WaitingHandler();
+  IHandler pp = new WaitingHandler();
   var request = "waiting";
 
   var isMqttConnected = false;
@@ -164,72 +168,76 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    pp.setNext(CleaningHandler());
+    pp.setNext(PanelHandler());
+
+    setState(() {
+      request = "panel";
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: EdgeInsets.all(15),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                    child: Column(
-                  children: [
-                    Text("MQTT"),
-                    Switch(
-                        value: this.isMqttConnected,
-                        onChanged: (to) async {
-                          try {
-                            if (to) {
-                              // client.logging(on: true);
-
-                              client.onConnected = this.onMqttConnected;
-                              client.onDisconnected = this.onMqttDisconnected;
-                              client.onSubscribed = this.onMqttSubscribed;
-                              client.onSubscribeFail =
-                                  this.onMqttSubscribeFailed;
-                              client.onUnsubscribed = this.onMqttUnsubscribed;
-                              final connMesage = MqttConnectMessage()
-                                  .authenticateAs(MQTT_USER, MQTT_KEY)
-                                  .withClientIdentifier(MQTT_CLIENT_ID)
-                                  .startClean();
-
-                              client.connectionMessage = connMesage;
-
-                              print("mqtt connecting...");
-                              await client.connect();
-                              // print(status);
-
-                              client.updates.listen(onMqttMessageReceived);
-                            } else {
-                              client.disconnect();
-                            }
-                          } catch (e) {
-                            print(e.toString());
-                          }
-                        }),
-                  ],
-                )),
-                Expanded(
-                    child: Column(children: [
-                  Text("ARDUINO "),
+        body: Container(
+      padding: EdgeInsets.all(15),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                  child: Column(
+                children: [
+                  Text("MQTT"),
                   Switch(
-                      value: this.mqttChannels[ARDUINO_TOPIC]["conectado"],
-                      onChanged: this.mqttTopicSubscription(ARDUINO_TOPIC)),
-                ]))
-              ],
-            ),
-            Expanded(
-                child: pp.handle(this.request) ??
+                      value: this.isMqttConnected,
+                      onChanged: (to) async {
+                        try {
+                          if (to) {
+                            // client.logging(on: true);
+
+                            client.onConnected = this.onMqttConnected;
+                            client.onDisconnected = this.onMqttDisconnected;
+                            client.onSubscribed = this.onMqttSubscribed;
+                            client.onSubscribeFail = this.onMqttSubscribeFailed;
+                            client.onUnsubscribed = this.onMqttUnsubscribed;
+                            final connMesage = MqttConnectMessage()
+                                .authenticateAs(MQTT_USER, MQTT_KEY)
+                                .withClientIdentifier(MQTT_CLIENT_ID)
+                                .startClean();
+
+                            client.connectionMessage = connMesage;
+
+                            print("mqtt connecting...");
+                            await client.connect();
+                            // print(status);
+
+                            client.updates.listen(onMqttMessageReceived);
+                          } else {
+                            client.disconnect();
+                          }
+                        } catch (e) {
+                          print(e.toString());
+                        }
+                      }),
+                ],
+              )),
+              Expanded(
+                  child: Column(children: [
+                Text("ARDUINO "),
+                Switch(
+                    value: this.mqttChannels[ARDUINO_TOPIC]["conectado"],
+                    onChanged: this.mqttTopicSubscription(ARDUINO_TOPIC)),
+              ]))
+            ],
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+                child: pp.handle(request) ??
                     Text("request '${this.request}' not found")),
-          ],
-        ),
+          )
+        ],
       ),
-    );
+    ));
   }
 }
