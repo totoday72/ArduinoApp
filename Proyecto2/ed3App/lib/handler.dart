@@ -1,3 +1,6 @@
+import 'package:ed3App/temperatura_chart.dart';
+import 'package:flutter/cupertino.dart';
+
 class IHandler {
   setNext(IHandler handler) {}
   handle(Object request) {}
@@ -35,6 +38,56 @@ class WaitingHandler extends AbstracHandler {
 
   @override
   Object mainHandle(Object request) {
-    return request;
+    return WaitingWidget();
+  }
+}
+
+class WaitingWidget extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Text("waiting...");
+  }
+}
+
+class CleaningHandler extends AbstracHandler {
+  @override
+  bool canHandle(Object request) {
+    return request == "cleaning";
+  }
+
+  @override
+  Object mainHandle(Object request) {
+    return CleaningWidget("MY-USERNAME");
+  }
+}
+
+class CleaningWidget extends StatelessWidget {
+  static int timer = 22;
+  final username;
+
+  CleaningWidget(this.username);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      child: Padding(
+        padding: EdgeInsets.all(10),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text("$username")),
+                Expanded(
+                    child: Align(
+                  alignment: Alignment.center,
+                  child: Text("$timer"),
+                ))
+              ],
+            ),
+            Expanded(child: TemperaturaChart())
+          ],
+        ),
+      ),
+    );
   }
 }

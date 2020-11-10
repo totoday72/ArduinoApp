@@ -1,11 +1,8 @@
-import 'dart:convert';
-import 'dart:ffi';
-
 import 'package:flutter/material.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
+
 import './handler.dart';
-import 'package:charts_flutter/flutter.dart' as charts;
 
 void main() {
   runApp(MyApp());
@@ -58,6 +55,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   var pp = new WaitingHandler();
+  var request = "waiting";
 
   var isMqttConnected = false;
   static const ARDUINO_TOPIC = "channels/1117472/subscribe/json";
@@ -149,8 +147,11 @@ class _MyHomePageState extends State<MyHomePage> {
     final localTopic = this.mqttChannels[topic];
 
     switch (topic) {
-      // case ARDUINO_TOPIC:
-      //   break;
+      case ARDUINO_TOPIC:
+        setState(() {
+          request = "cleaning";
+        });
+        break;
       default:
         print("${localTopic["nombre"]}: $payload");
     }
@@ -158,6 +159,12 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       localTopic["valor"] = payload;
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    pp.setNext(CleaningHandler());
   }
 
   @override
@@ -217,42 +224,12 @@ class _MyHomePageState extends State<MyHomePage> {
                 ]))
               ],
             ),
-            Padding(
-              padding: EdgeInsets.all(20),
-              child: Text("MY_USERNAME"),
-            ),
-            Expanded(child: TemperaturaChart()),
+            Expanded(
+                child: pp.handle(this.request) ??
+                    Text("request '${this.request}' not found")),
           ],
         ),
       ),
-    );
-  }
-}
-
-class TemperaturaRegistrada {
-  final DateTime fecha;
-  final double valor;
-  TemperaturaRegistrada(this.fecha, this.valor);
-}
-
-class TemperaturaChart extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return new charts.TimeSeriesChart(
-      [
-        new charts.Series<TemperaturaRegistrada, DateTime>(
-            id: "dd",
-            data: [
-              TemperaturaRegistrada(DateTime(2020, 10, 1), 32.3),
-              TemperaturaRegistrada(DateTime(2020, 10, 2), 40.3),
-              TemperaturaRegistrada(DateTime(2020, 10, 3), 30.3),
-              TemperaturaRegistrada(DateTime(2020, 10, 4), 10.3),
-              TemperaturaRegistrada(DateTime(2020, 10, 5), 30.3),
-            ],
-            domainFn: (TemperaturaRegistrada d, _) => d.fecha,
-            measureFn: (TemperaturaRegistrada d, _) => d.valor)
-      ],
-      animate: false,
     );
   }
 }
