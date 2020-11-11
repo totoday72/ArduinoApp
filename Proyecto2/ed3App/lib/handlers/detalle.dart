@@ -63,13 +63,18 @@ class _DetalleWidgetState extends State<DetalleWidget> {
         children: [
           Row(
             children: [
-              Expanded(child: Text("${widget.username}")),
+              Expanded(
+                  child: Text(
+                "${widget.username}",
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24),
+                textAlign: TextAlign.center,
+              )),
             ],
           ),
           Expanded(
               child: TemperaturaChart(temperaturaList
                   .map<TemperaturaRegistrada>((item) => TemperaturaRegistrada(
-                      DateTime.parse(item["fecha"]),
+                      DateTime.parse("${item["fecha"]} ${item["hora"]}"),
                       double.parse(item["temperaturaCorporal"].toString())))
                   .toList()))
         ],
