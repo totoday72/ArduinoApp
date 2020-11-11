@@ -1,4 +1,5 @@
 import 'package:ed3App/handlers/dia.dart';
+import 'package:ed3App/handlers/mes.dart';
 import 'package:ed3App/handlers/panel.dart';
 import 'package:flutter/material.dart';
 import 'package:mqtt_client/mqtt_client.dart';
@@ -169,7 +170,10 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    pp.setNext(PanelHandler()).setNext(DiaHandler(DateTime.now()));
+    pp
+        .setNext(PanelHandler())
+        .setNext(DiaHandler(DateTime.now()))
+        .setNext(new MesHanlder(DateTime.now()));
 
     setState(() {
       request = "panel";

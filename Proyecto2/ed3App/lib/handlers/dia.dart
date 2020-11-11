@@ -138,6 +138,7 @@ class _DiaWidgetState extends State<DiaWidget> {
                     child: Text(
                         "${selected.year}-${selected.month}-${selected.day}")),
                 Container(
+                  margin: EdgeInsets.fromLTRB(0, 0, 0, 25),
                   height: 350,
                   child: TemperaturaChart(this.last5),
                 ),
