@@ -1,4 +1,5 @@
 import 'package:ed3App/handlers/dia.dart';
+import 'package:ed3App/handlers/enfermos.dart';
 import 'package:ed3App/handlers/mes.dart';
 import 'package:ed3App/handlers/panel.dart';
 import 'package:flutter/material.dart';
@@ -173,7 +174,8 @@ class _MyHomePageState extends State<MyHomePage> {
     pp
         .setNext(PanelHandler())
         .setNext(DiaHandler(DateTime.now()))
-        .setNext(new MesHanlder(DateTime.now()));
+        .setNext(new MesHanlder(DateTime.now()))
+        .setNext(EnfermosHanlder(DateTime.now()));
 
     setState(() {
       request = "panel";
