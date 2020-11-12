@@ -2,9 +2,12 @@
 #include <Wire.h>
 #include <Adafruit_MLX90614.h>
 #include <LiquidCrystal_I2C.h>
-#include <SoftwareSerial.h>
+#include <SoftwareSerial.h> // para habilitar el WIFICON emulando rx y tx
+//#include <ESP8266WIFI.h>  // para ESP8266 habilitar esta linea
+//#include <WIFICON.h>           // para shield ESP32 habilitar esta linea
+#include "WiFiEsp.h"
+#include <virtuabotixRTC.h> //Libreria
 #include "Arduino.h"
-#include "SoftwareSerial.h"
 #include "DFRobotDFPlayerMini.h"
 const int rxmp3 = 11;
 const int txmp3 = 12;
@@ -28,19 +31,47 @@ byte colPins[COLS] = {28, 26, 24, 22};  //22 AZUL MARCADO CON 1 connect to the c
 //initialize an instance of class NewKeypad
 Adafruit_Keypad teclado = Adafruit_Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 LiquidCrystal_I2C lcd(0x27, 16, 2); // I2C address 0x27, 16 column and 2
+//*****************WIFI**************************
+//#ifndef HAVE_HWSERIAL1
+//SoftwareSerial wifiserial(5, 4); // TX, RX
+//#endif
+//#define ESP_BAUDRATE  9600
+char ssid[] = "sdfsadfasdfasdfasdfasdfasdfasdfa";            // your network SSID (name)
+char passw[] = "KKBGVVJK";        // your network password
+int status = WL_IDLE_STATUS;     // the Wifi radio's status
+char server[] = "api.taskycodes.com";
+String fecha = "";
+String hora = "";
+// Initialize the Ethernet client object
+WiFiEspClient client;
 //*****************TECLADO**************************
 
-
-
+#define DEBUG true
+#define wifiled 13 //LED is connected to Pin 11 of Arduino
 DFRobotDFPlayerMini mp3;
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 //sensor ultrasonico
 #define triggerUltrasonico 6  //pin trigger del ultrasonico
 #define echoUltrasonico 7     //pin echo del ultrasonico
-
+#define motor 2
+#define puerta 3
+#define uv 4
+//*****************RTC**************************
+virtuabotixRTC myRTC(8, 9, 10);// CLK -> 6, DAT -> 7, RST -> 8
 void setup() {
+  pinMode(uv, OUTPUT);
+  digitalWrite(uv, LOW);
+  pinMode(motor, OUTPUT);
+  digitalWrite(motor, HIGH);
+  pinMode(puerta, OUTPUT);
+  digitalWrite(puerta, HIGH);
+  pinMode(wifiled, OUTPUT);
+  digitalWrite(wifiled, LOW);
   Serial.begin(9600);
+  mlx.begin();
+  mySoftwareSerial.begin(9600);
   teclado.begin();
+  Serial1.begin(9600);
   lcd.init(); // initialize the lcd
   lcd.backlight();
   lcd.setCursor(0, 0);
@@ -49,25 +80,52 @@ void setup() {
   lcd.print("Espere....");
   pinMode(triggerUltrasonico, OUTPUT);
   pinMode(echoUltrasonico, INPUT);
-  pinMode(rxmp3, INPUT);
-  pinMode(txmp3, OUTPUT);
-  pinMode(4, INPUT);
-  mlx.begin();
-  mySoftwareSerial.begin(9600);
+  //pinMode(rxmp3, INPUT);
+  //pinMode(txmp3, OUTPUT);
+
+
   mp3.begin(mySoftwareSerial);   //Use softwareSerial to communicate with mp3.
   mp3.setTimeOut(500); //Set serial communictaion time out 500ms
   mp3.reset();
   //----Set volume----
-  mp3.volume(30);  //Set volume value (0~30).
+  mp3.volume(7);  //Set volume value (0~30).
   //mp3.volumeUp(); //Volume Up
-  //mp3.volumeDown(); //Volume Down
-  mp3.EQ(DFPLAYER_EQ_ROCK);
-  mp3.outputDevice(DFPLAYER_DEVICE_SD);
+  mp3.volumeDown(); //Volume Down
+  //mp3.EQ(DFPLAYER_EQ_ROCK);
+  //mp3.outputDevice(DFPLAYER_DEVICE_SD);
   //myDFPlayer.play(18);  //Play the first mp3
   //myDFPlayer.randomAll(); //Random play all the mp3.
   //myDFPlayer.advertise(3);
+  lcd.setCursor(0, 1);
+  lcd.print("iniciando wifi");
+
+  //********************** SWICH ON WIFI COMUNICATION**********************************************
+  WiFi.init(&Serial1); //en arduino mega se utiliza el serial 1 no se usa otros pines
+
+  /*check for the presence of the shield
+    if (WiFi.status() == WL_NO_SHIELD) {
+    Serial.println("WiFi shield not present");
+    // don't continue
+
+    } else {
+    lcd.setCursor(0, 1);
+    lcd.print("Wifi conectado....");
+    }
+  */
+  //myRTC.setDS1302Time(00, 35, 14, 3, 11, 11, 2020); //// (segundos, minutos, hora, dia da semana, dia del mes, mes, año)::: SS, MM, HH, DW, DD, MM, YYYY
+  conectarWifi();
+  myRTC.updateTime();
+  fecha =  String(myRTC.year) + "-" + String(myRTC.month) + "-" + String(myRTC.dayofmonth);
+  //String hora = "15:10:13";
+  Serial.println("Fecha: " + fecha);
+  hora = String(myRTC.hours) + ":" + String(myRTC.minutes) + ":" + String(myRTC.seconds);
+  Serial.println("hora: " + hora);
+
+
+  //********************** SWICH ON WIFI COMUNICATION**********************************************
 }
-int tiemponumeros = 900;
+
+int tiemponumeros = 950;
 const int tempambiente = 2;
 const int tempcorporal = 1;
 const int distanciaminima = 5;
@@ -75,14 +133,15 @@ const int temperaturamaxima = 37; //temperatura en la cual es usuario ya no pued
 
 //**************************LOOOOP**************************
 //**************************LOOOOP**************************
+long timetoseeclock = 0;
 void loop() {
 inicio:
   float distancia = medirDistancia();
   if (distancia < distanciaminima) {
-    String Usuario = ingresarUsuario();
+    String usuario =  ingresarUsuario();
     delay(100);
     int contador = 0;
-    if (Usuario != "") {
+    if (usuario != "") {
       int temperatura = 0;
 TomarTemperatura:
       long tiempo = millis();
@@ -129,7 +188,7 @@ TomarTemperatura:
               reproducirSonidoNumero(i, i, false);
             } else if (i < 20) {
               reproducirSonidoNumero(i - 10, i, false);
-            } else if (i < 30) {
+            } /*else if (i < 30) {
               reproducirSonidoNumero(i - 20, i, false);
             } else if (i < 40) {
               reproducirSonidoNumero(i - 30, i, false);
@@ -138,13 +197,15 @@ TomarTemperatura:
             } else if (i < 60) {
               reproducirSonidoNumero(i - 50, i, false);
             }
+*/
             lcd.setCursor(0, 0);
-            lcd.print("Prueba " + String(contador+1) + " en:" + String(i) + " S         ");
+            lcd.print("Prueba " + String(contador + 1) + " en:" + String(i) + " S         ");
             lcd.setCursor(0, 1);
             lcd.print("T=" + String(temperatura) + "'C            ");
             char caracter = leerTeclado();
             if (caracter == '#' || caracter == '*') {
-              reportarEnfermo(Usuario, temperatura);
+              int temperaturaAmbiente = int(mlx.readAmbientTempC());
+              reportar(temperatura, temperaturaAmbiente, usuario);
               goto inicio;
             }
             if ((millis() - tiempo) > 8000) {
@@ -160,15 +221,31 @@ TomarTemperatura:
           }
           goto TomarTemperatura;
         } else { // si en caso es la tercera no abrira la puerta y enviara los datos a al api
-          reportarEnfermo(Usuario, temperatura);
+          int temperaturaAmbiente = int(mlx.readAmbientTempC());
+          reportar(temperatura, temperaturaAmbiente, usuario);
         }
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Usuario: " + usuario);
+        lcd.setCursor(0, 1);
+        lcd.print("No puede ingresar!");
+        desinfectarPuerta();
+        desinfectarTelefono();
       } else {
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("Usuario: " + Usuario);
+        lcd.print("Usuario: " + usuario);
         lcd.setCursor(0, 1);
         lcd.print("Temp: " + String(temperatura) + "'");
-        enviarDatosAPI(Usuario, temperatura);
+        int temperaturaAmbiente = int(mlx.readAmbientTempC());
+        reportar(temperatura, temperaturaAmbiente, usuario);
+        lcd.clear();
+        lcd.setCursor(0, 1);
+        lcd.print("Usuario: " + usuario);
+        lcd.setCursor(0, 0);
+        lcd.print("¡BIENVENIDO!");
+        desinfectarPuerta();
+        desinfectarTelefono();
         abrirPuerta();
       }
     } else {
@@ -184,30 +261,48 @@ TomarTemperatura:
   lcd.setCursor(0, 0);
   lcd.print("Medicion Lista!        ");
   lcd.setCursor(0, 1);
-  lcd.print("D: " + String(int(distancia)) + " cm     ");
-  //delay(1000);
-
+  long resta = millis() - timetoseeclock;
+  if (resta < 20000) {
+    lcd.print("D: " + String(int(distancia)) + " cm            ");
+  } else if (millis() - timetoseeclock < 30000) {
+    myRTC.updateTime();
+    hora = String(myRTC.hours) + ":" + String(myRTC.minutes) + ":" + String(myRTC.seconds);
+    lcd.print("Hora: " + hora + "      ");
+  } else {
+    timetoseeclock = millis();
+  }
 }
 //**************************LOOOOP**************************
 //**************************LOOOOP**************************
-void reportarEnfermo(String Usuario, int temperatura) {
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Usuario: " + Usuario);
-  lcd.setCursor(0, 1);
-  lcd.print("No puede ingresar");
-  enviarDatosAPI(Usuario, temperatura);
+void reportar(int temperaturaCorporal, int temperaturaAmbiente, String usuario) {
+  myRTC.updateTime();
+  String fecha =  String(myRTC.year) + "-" + String(myRTC.month) + "-" + String(myRTC.dayofmonth);
+  //String hora = "15:10:13";
+  Serial.println("Fecha: " + fecha);
+  String hora = String(myRTC.hours) + ":" + String(myRTC.minutes) + ":" + String(myRTC.seconds);
+  Serial.println("hora: " + hora);
+  enviarDatos(temperaturaCorporal,  temperaturaAmbiente,  usuario,  fecha,  hora);
 }
 
 
 void abrirPuerta() {
+
+  digitalWrite(puerta, LOW);
+  delay(1500);
+  digitalWrite(puerta, HIGH);
+}
+void desinfectarTelefono() {
+  digitalWrite(uv, HIGH);
+  delay(5000);
+  digitalWrite(uv, LOW);
   Serial.println("Se abrira la puerta!");
 }
+void desinfectarPuerta() {
 
-void enviarDatosAPI(String usuario, int temperatura) {
-  Serial.println("Se enviara a API!, Usuario:" + usuario + " temp:" + String(temperatura));
+  digitalWrite(motor, LOW);
+  delay(3000);
+  digitalWrite(motor, HIGH);
 }
-
 char leerTeclado() {
   char caracter = 'x';
   teclado.tick();
@@ -508,5 +603,75 @@ void reproducirSonidoNumero(int sonido, int numero, boolean decirgrados) {
   }
 }
 
-//***************** SONIDO ****************************
-//***************** SONIDO ****************************
+//***************** comunicacion ****************************
+String response = "";
+boolean enviarDatos(int temperaturaCorporal, int temperaturaAmbiente, String usuario, String fecha, String hora) {
+  conectarWifi();
+  printWifiStatus();
+  // if you get a connection, report back via serial
+  if (client.connect(server, 80)) {
+    Serial.println("Connected to server");
+    // Make a HTTP request
+    client.println("GET /guardarproyecto2?usuario=" + usuario + "&fecha=" + fecha + "&hora=" + hora + "&temperaturaCorporal=" + String(temperaturaCorporal) + "&temperaturaAmbiente=" + String(temperaturaAmbiente) + " HTTP/1.1");
+    client.println("Host: api.taskycodes.com");
+    client.println("Connection: close");
+    client.println();
+    while (client.available()) {
+      char c = client.read();
+      response += c;
+    }
+    Serial.println("Disconnecting from server...");
+    client.flush();
+    client.stop();
+    Serial.println(response);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void printWifiStatus()
+{
+  // print the SSID of the network you're attached to
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  // print your WiFi shield's IP address
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  // print the received signal strength
+  long rssi = WiFi.RSSI();
+  Serial.print("Signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("IP:" + String(ip));
+  lcd.setCursor(0, 1);
+  lcd.print("S:" + String(rssi) + "dBm");
+  delay(4500);
+}
+void conectarWifi() {
+  while ( status != WL_CONNECTED) {
+    Serial.print("Attempting to connect to WPA SSID: ");
+    Serial.println(ssid);
+    // Connect to WPA/WPA2 network
+    status = WiFi.begin(ssid, passw);
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Wifi!.");
+    lcd.setCursor(0, 1);
+    lcd.print("R:Conectando");
+  }
+  Serial.println("You're connected to the network");
+  printWifiStatus();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Wifi conect!.");
+  lcd.setCursor(0, 1);
+  lcd.print("R:" + String(ssid));
+  delay(3000);
+}
+//***************** COMUNICACION ****************************

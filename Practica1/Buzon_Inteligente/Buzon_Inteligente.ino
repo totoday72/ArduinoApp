@@ -4,6 +4,7 @@
 //***************** INCLUDES DE LIBRERIAS ****************************
 #include "HX711.h"
 #include <SoftwareSerial.h>
+
 //********************FINAL DE INCLUDES ******************************
 
 //***************** INICIO DE VARIABLES GLOBALES ****************************
