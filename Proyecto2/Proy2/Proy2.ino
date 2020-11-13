@@ -53,12 +53,14 @@ Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 //sensor ultrasonico
 #define triggerUltrasonico 6  //pin trigger del ultrasonico
 #define echoUltrasonico 7     //pin echo del ultrasonico
-#define motor 2
-#define puerta 3
+#define motor 3
+#define puerta 2
 #define uv 4
+const int switchpuerta = A0;
 //*****************RTC**************************
 virtuabotixRTC myRTC(8, 9, 10);// CLK -> 6, DAT -> 7, RST -> 8
 void setup() {
+  pinMode(switchpuerta, INPUT);
   pinMode(uv, OUTPUT);
   digitalWrite(uv, LOW);
   pinMode(motor, OUTPUT);
@@ -85,7 +87,7 @@ void setup() {
 
 
   mp3.begin(mySoftwareSerial);   //Use softwareSerial to communicate with mp3.
-  mp3.setTimeOut(500); //Set serial communictaion time out 500ms
+  mp3.setTimeOut(1000); //Set serial communictaion time out 500ms
   mp3.reset();
   //----Set volume----
   mp3.volume(7);  //Set volume value (0~30).
@@ -113,7 +115,7 @@ void setup() {
     }
   */
   //myRTC.setDS1302Time(00, 35, 14, 3, 11, 11, 2020); //// (segundos, minutos, hora, dia da semana, dia del mes, mes, año)::: SS, MM, HH, DW, DD, MM, YYYY
-  conectarWifi();
+  conectarWifi(1);
   myRTC.updateTime();
   fecha =  String(myRTC.year) + "-" + String(myRTC.month) + "-" + String(myRTC.dayofmonth);
   //String hora = "15:10:13";
@@ -134,12 +136,29 @@ const int temperaturamaxima = 37; //temperatura en la cual es usuario ya no pued
 //**************************LOOOOP**************************
 //**************************LOOOOP**************************
 long timetoseeclock = 0;
+boolean sonido = true;
 void loop() {
+  char caracter = leerTeclado();
+  if (caracter == '#' || caracter == '*') {
+    sonido = !sonido;
+    lcd.setCursor(0, 1);
+    lcd.print("sonido:" + String(sonido) + "                 ");
+    delay(1000);
+  }
 inicio:
   float distancia = medirDistancia();
   if (distancia < distanciaminima) {
+    if (sonido) {
+      mp3.play(49); // dice "ingrese sus pertenencias"
+      delay(3000);
+    } else {
+      lcd.setCursor(0, 1);
+      lcd.print("coloque petenencias            ");
+    }
+    desinfectarTelefono(1000);
+    delay(500);
+    desinfectarTelefono(1000);
     String usuario =  ingresarUsuario();
-    delay(100);
     int contador = 0;
     if (usuario != "") {
       int temperatura = 0;
@@ -159,8 +178,10 @@ TomarTemperatura:
           lcd.print("Presione * o # para      ");
           lcd.setCursor(0, 1);
           lcd.print("cancelar la operacion ");
-          mp3.play(46); // dice que se acerque al sensor
-          delay(3000);
+          if (sonido) {
+            mp3.play(46); // dice que se acerque al sensor
+            delay(3000);
+          }
         }
         char caracter = leerTeclado();
         if (caracter == '#' || caracter == '*') {
@@ -172,22 +193,61 @@ TomarTemperatura:
       if (temperatura > temperaturamaxima) {
         switch (contador) {
           case 1:
-            mp3.play(18); //advertencia 1 de temperatura >36
+            if (sonido) {
+              mp3.play(18); //advertencia 1 de temperatura >36
+            } else {
+              lcd.clear();
+              lcd.setCursor(0, 0);
+              lcd.print("Temp. >37");
+              lcd.setCursor(0, 1);
+              lcd.print("Se repetira medir");
+            }
             break;
           case 2:
-            mp3.play(19); //advertencia 2 de temperatura >36
+            if (sonido) {
+              mp3.play(19); //advertencia 2 de temperatura >36
+            } else {
+              lcd.clear();
+              lcd.setCursor(0, 0);
+              lcd.print("Temp. >37");
+              lcd.setCursor(0, 1);
+              lcd.print("Se repetira medir");
+            }
             break;
           case 3:
-            mp3.play(20); //advertencia 3 de temperatura >36
+            if (sonido) {
+              mp3.play(20); //advertencia 3 de temperatura >36
+            } else {
+              lcd.clear();
+              lcd.setCursor(0, 0);
+              lcd.print("Temp. >37");
+              lcd.setCursor(0, 1);
+              lcd.print("No Ingreso");
+            }
             break;
         }
-        delay(13000);
+        if (sonido) {
+          delay(13000);
+        } else {
+          delay(3000);
+        }
         if (contador < 3) { //si los intentos son 1 o 2 se vuelve a tomar temperatura de ultimo la 3
           for (int i = 59; i >= 0; i--) {
             if (i <= 15) {
-              reproducirSonidoNumero(i, i, false);
-            } else if (i < 20) {
-              reproducirSonidoNumero(i - 10, i, false);
+              if (sonido) {
+                reproducirSonidoNumero(i, i, false);
+              } else {
+                delay(1000);
+              }
+            }
+            else if (i < 20) {
+              if (sonido) {
+                reproducirSonidoNumero(i - 10, i, false);
+              } else {
+                delay(1000);
+              }
+            } else {
+              delay(1000);
             } /*else if (i < 30) {
               reproducirSonidoNumero(i - 20, i, false);
             } else if (i < 40) {
@@ -217,7 +277,7 @@ TomarTemperatura:
               lcd.print("cancelar la operacion      ");
               delay(100);
             }
-            delay(60);
+
           }
           goto TomarTemperatura;
         } else { // si en caso es la tercera no abrira la puerta y enviara los datos a al api
@@ -230,7 +290,17 @@ TomarTemperatura:
         lcd.setCursor(0, 1);
         lcd.print("No puede ingresar!");
         desinfectarPuerta();
-        desinfectarTelefono();
+        desinfectarTelefono(6000);
+        if (sonido) {
+          mp3.play(50); // dice "retire sus pertenencias"
+          delay(3000);
+        } else {
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("Usuario: " + usuario);
+          lcd.setCursor(0, 1);
+          lcd.print("tome pertenencias!");
+        }
       } else {
         lcd.clear();
         lcd.setCursor(0, 0);
@@ -244,9 +314,41 @@ TomarTemperatura:
         lcd.print("Usuario: " + usuario);
         lcd.setCursor(0, 0);
         lcd.print("¡BIENVENIDO!");
-        desinfectarPuerta();
-        desinfectarTelefono();
+        desinfectarTelefono(6000);
+        if (sonido) {
+          mp3.play(50); // dice "recoger sus pertenencias"
+          delay(3000);
+          mp3.play(47); // dice "aBRA LA PURETA"
+          delay(2000);
+        } else {
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("Usuario: " + usuario);
+          lcd.setCursor(0, 1);
+          lcd.print("tome pertenencias!");
+          delay(2000);
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("Usuario: " + usuario);
+          lcd.setCursor(0, 1);
+          lcd.print("abriendo puerta!");
+          delay(1000);
+        }
         abrirPuerta();
+        if (sonido) {
+          mp3.play(52); // dice "desinfecte sus manos"
+          delay(2000);
+        } else {
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("Usuario: " + usuario);
+          lcd.setCursor(0, 1);
+          lcd.print("Desinf. sus manos!");
+        }
+        desinfectarPuerta();
+        verificarPuertaCerrada();
+        desinfectarPuerta();
+
       }
     } else {
       decirTemperatura(tempambiente);
@@ -262,18 +364,33 @@ TomarTemperatura:
   lcd.print("Medicion Lista!        ");
   lcd.setCursor(0, 1);
   long resta = millis() - timetoseeclock;
-  if (resta < 20000) {
-    lcd.print("D: " + String(int(distancia)) + " cm            ");
+  if (resta < 5000) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Presion * o # para           ");
+    lcd.setCursor(0, 1);
+    lcd.print("Sonido:" + String(sonido) + "          ");
+  } else if (resta < 20000) {
+    lcd.print("D: " + String(int(distancia)) + " cm                ");
   } else if (millis() - timetoseeclock < 30000) {
     myRTC.updateTime();
     hora = String(myRTC.hours) + ":" + String(myRTC.minutes) + ":" + String(myRTC.seconds);
-    lcd.print("Hora: " + hora + "      ");
+    lcd.print("Hora: " + hora + "           ");
   } else {
     timetoseeclock = millis();
   }
 }
 //**************************LOOOOP**************************
 //**************************LOOOOP**************************
+void verificarPuertaCerrada() {
+  while (digitalRead(switchpuerta) == HIGH) {
+    mp3.play(51); // dice "CIERRE LA PURETA"
+    delay(5000);
+    Serial.println("puerta estado:" + digitalRead(switchpuerta));
+  }
+}
+
+
 void reportar(int temperaturaCorporal, int temperaturaAmbiente, String usuario) {
   myRTC.updateTime();
   String fecha =  String(myRTC.year) + "-" + String(myRTC.month) + "-" + String(myRTC.dayofmonth);
@@ -291,11 +408,10 @@ void abrirPuerta() {
   delay(1500);
   digitalWrite(puerta, HIGH);
 }
-void desinfectarTelefono() {
+void desinfectarTelefono(int tiempo) {
   digitalWrite(uv, HIGH);
-  delay(5000);
+  delay(tiempo);
   digitalWrite(uv, LOW);
-  Serial.println("Se abrira la puerta!");
 }
 void desinfectarPuerta() {
 
@@ -317,7 +433,9 @@ char leerTeclado() {
 
 //***************** INGRESAR USUARIO ****************************
 String ingresarUsuario() {
-  mp3.play(28);
+  if (sonido) {
+    mp3.play(28);
+  }
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Usuario: ");
@@ -348,7 +466,9 @@ String ingresarUsuario() {
             }
           }
         } else if (e.bit.EVENT == KEY_JUST_RELEASED) {
-          sonidotecla(caracter);
+          if (sonido) {
+            sonidotecla(caracter);
+          }
           lcd.clear();
           lcd.setCursor(0, 0);
           lcd.print("Usuario: ");
@@ -361,14 +481,16 @@ String ingresarUsuario() {
 
     caracter = 'x';
     lcd.setCursor(0, 0);
-    lcd.print("Confirmar Usuario: ");
-    mp3.play(35);
-    delay(tiemponumeros);
-    for (int i = 0; i < cadena.length(); i++) {
-      sonidotecla(cadena.charAt(i));
+    lcd.print("*Confirmar #Cancelar: ");
+    if (sonido) {
+      mp3.play(35);
+      delay(tiemponumeros);
+      for (int i = 0; i < cadena.length(); i++) {
+        sonidotecla(cadena.charAt(i));
+      }
+      mp3.play(21);
+      delay(tiemponumeros);
     }
-    mp3.play(21);
-    delay(tiemponumeros);
     while (caracter != '*') {
       teclado.tick();
       if (teclado.available()) {
@@ -380,12 +502,16 @@ String ingresarUsuario() {
           } else if (caracter == '#') {
             caracter = 'x';
             cadena = "";
-            mp3.play(28);
+            if (sonido) {
+              mp3.play(28);
+            }
             break;
           }
           Serial.println(" pressed");
         } else if (e.bit.EVENT == KEY_JUST_RELEASED) {
-          sonidotecla(caracter);
+          if (sonido) {
+            sonidotecla(caracter);
+          }
         }
       }
     }
@@ -409,8 +535,8 @@ float medirDistancia() {
   digitalWrite(triggerUltrasonico, LOW);
   duracion = pulseIn(echoUltrasonico, HIGH);
   distancia = duracion * 0.01768115942 ;
-  Serial.print ("Distancia en Promedio: ");
-  Serial.println(distancia);
+  //Serial.print ("Distancia en Promedio: ");
+  //Serial.println(distancia);
   delay(80);
   return distancia;
 }
@@ -479,12 +605,16 @@ void sonidotecla(char tecla) {
 int decirTemperatura(int modo) {
   int tempObjeto = 0;
   if (modo == 1) {
-    mp3.play(33);
-    delay(2000);
+    if (sonido) {
+      mp3.play(33);
+      delay(2000);
+    }
     tempObjeto = int(mlx.readObjectTempC());
   } else {
-    mp3.play(36);
-    delay(2000);
+    if (sonido) {
+      mp3.play(36);
+      delay(2000);
+    }
     tempObjeto = int(mlx.readAmbientTempC());
   }
   lcd.clear();
@@ -496,23 +626,24 @@ int decirTemperatura(int modo) {
   }
   lcd.setCursor(0, 1);
   lcd.print("T=" + String(tempObjeto) + " 'C");
-
-  if (tempObjeto <= 15) {
-    reproducirSonidoNumero(tempObjeto, tempObjeto, true);
-  } else if (tempObjeto < 20) {
-    reproducirSonidoNumero(tempObjeto - 10, tempObjeto, true);
-  } else if (tempObjeto < 30) {
-    reproducirSonidoNumero(tempObjeto - 20, tempObjeto, true);
-  } else if (tempObjeto < 40) {
-    reproducirSonidoNumero(tempObjeto - 30, tempObjeto, true);
-  } else if (tempObjeto < 50) {
-    reproducirSonidoNumero(tempObjeto - 40, tempObjeto, true);
-  } else if (tempObjeto < 60) {
-    reproducirSonidoNumero(tempObjeto - 50, tempObjeto, true);
-  } else {
-    mp3.play(14);
+  if (sonido) {
+    if (tempObjeto <= 15) {
+      reproducirSonidoNumero(tempObjeto, tempObjeto, true);
+    } else if (tempObjeto < 20) {
+      reproducirSonidoNumero(tempObjeto - 10, tempObjeto, true);
+    } else if (tempObjeto < 30) {
+      reproducirSonidoNumero(tempObjeto - 20, tempObjeto, true);
+    } else if (tempObjeto < 40) {
+      reproducirSonidoNumero(tempObjeto - 30, tempObjeto, true);
+    } else if (tempObjeto < 50) {
+      reproducirSonidoNumero(tempObjeto - 40, tempObjeto, true);
+    } else if (tempObjeto < 60) {
+      reproducirSonidoNumero(tempObjeto - 50, tempObjeto, true);
+    } else {
+      mp3.play(14);
+    }
+    delay(2000);
   }
-  delay(2000);
   return tempObjeto;
 }
 
@@ -606,8 +737,7 @@ void reproducirSonidoNumero(int sonido, int numero, boolean decirgrados) {
 //***************** comunicacion ****************************
 String response = "";
 boolean enviarDatos(int temperaturaCorporal, int temperaturaAmbiente, String usuario, String fecha, String hora) {
-  conectarWifi();
-  printWifiStatus();
+  conectarWifi(0);
   // if you get a connection, report back via serial
   if (client.connect(server, 80)) {
     Serial.println("Connected to server");
@@ -653,7 +783,7 @@ void printWifiStatus()
   lcd.print("S:" + String(rssi) + "dBm");
   delay(4500);
 }
-void conectarWifi() {
+void conectarWifi(int tipo) {
   while ( status != WL_CONNECTED) {
     Serial.print("Attempting to connect to WPA SSID: ");
     Serial.println(ssid);
@@ -665,13 +795,15 @@ void conectarWifi() {
     lcd.setCursor(0, 1);
     lcd.print("R:Conectando");
   }
-  Serial.println("You're connected to the network");
-  printWifiStatus();
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Wifi conect!.");
-  lcd.setCursor(0, 1);
-  lcd.print("R:" + String(ssid));
-  delay(3000);
+  if (tipo == 1) {
+    Serial.println("You're connected to the network");
+    printWifiStatus();
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Wifi conect!.");
+    lcd.setCursor(0, 1);
+    lcd.print("R:" + String(ssid));
+    delay(3000);
+  }
 }
 //***************** COMUNICACION ****************************
