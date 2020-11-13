@@ -90,7 +90,7 @@ void setup() {
   mp3.setTimeOut(1000); //Set serial communictaion time out 500ms
   mp3.reset();
   //----Set volume----
-  mp3.volume(7);  //Set volume value (0~30).
+  mp3.volume(25);  //Set volume value (0~30).
   //mp3.volumeUp(); //Volume Up
   mp3.volumeDown(); //Volume Down
   //mp3.EQ(DFPLAYER_EQ_ROCK);
@@ -316,17 +316,9 @@ TomarTemperatura:
         lcd.print("¡BIENVENIDO!");
         desinfectarTelefono(6000);
         if (sonido) {
-          mp3.play(50); // dice "recoger sus pertenencias"
-          delay(3000);
           mp3.play(47); // dice "aBRA LA PURETA"
           delay(2000);
         } else {
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print("Usuario: " + usuario);
-          lcd.setCursor(0, 1);
-          lcd.print("tome pertenencias!");
-          delay(2000);
           lcd.clear();
           lcd.setCursor(0, 0);
           lcd.print("Usuario: " + usuario);
@@ -346,6 +338,19 @@ TomarTemperatura:
           lcd.print("Desinf. sus manos!");
         }
         desinfectarPuerta();
+        if (sonido) {
+          mp3.play(50); // dice "recoger sus pertenencias"
+          delay(3000);
+
+        } else {
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("Usuario: " + usuario);
+          lcd.setCursor(0, 1);
+          lcd.print("tome pertenencias!");
+          delay(2000);
+
+        }
         verificarPuertaCerrada();
         desinfectarPuerta();
 
