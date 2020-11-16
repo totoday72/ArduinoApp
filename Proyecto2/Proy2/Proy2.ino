@@ -90,7 +90,7 @@ void setup() {
   mp3.setTimeOut(1000); //Set serial communictaion time out 500ms
   mp3.reset();
   //----Set volume----
-  mp3.volume(7);  //Set volume value (0~30).
+  mp3.volume(25);  //Set volume value (0~30).
   //mp3.volumeUp(); //Volume Up
   mp3.volumeDown(); //Volume Down
   //mp3.EQ(DFPLAYER_EQ_ROCK);
@@ -131,6 +131,7 @@ int tiemponumeros = 950;
 const int tempambiente = 2;
 const int tempcorporal = 1;
 const int distanciaminima = 5;
+const int distanciaminimausuario =7;
 const int temperaturamaxima = 37; //temperatura en la cual es usuario ya no puede entrar
 
 //**************************LOOOOP**************************
@@ -147,7 +148,7 @@ void loop() {
   }
 inicio:
   float distancia = medirDistancia();
-  if (distancia < distanciaminima) {
+  if (distancia < distanciaminimausuario) {
     if (sonido) {
       mp3.play(49); // dice "ingrese sus pertenencias"
       delay(3000);
@@ -316,17 +317,9 @@ TomarTemperatura:
         lcd.print("¡BIENVENIDO!");
         desinfectarTelefono(6000);
         if (sonido) {
-          mp3.play(50); // dice "recoger sus pertenencias"
-          delay(3000);
           mp3.play(47); // dice "aBRA LA PURETA"
           delay(2000);
         } else {
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print("Usuario: " + usuario);
-          lcd.setCursor(0, 1);
-          lcd.print("tome pertenencias!");
-          delay(2000);
           lcd.clear();
           lcd.setCursor(0, 0);
           lcd.print("Usuario: " + usuario);
@@ -346,6 +339,19 @@ TomarTemperatura:
           lcd.print("Desinf. sus manos!");
         }
         desinfectarPuerta();
+        if (sonido) {
+          mp3.play(50); // dice "recoger sus pertenencias"
+          delay(3000);
+
+        } else {
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("Usuario: " + usuario);
+          lcd.setCursor(0, 1);
+          lcd.print("tome pertenencias!");
+          delay(2000);
+
+        }
         verificarPuertaCerrada();
         desinfectarPuerta();
 
@@ -405,7 +411,7 @@ void reportar(int temperaturaCorporal, int temperaturaAmbiente, String usuario) 
 void abrirPuerta() {
 
   digitalWrite(puerta, LOW);
-  delay(1500);
+  delay(750);
   digitalWrite(puerta, HIGH);
 }
 void desinfectarTelefono(int tiempo) {
@@ -416,7 +422,7 @@ void desinfectarTelefono(int tiempo) {
 void desinfectarPuerta() {
 
   digitalWrite(motor, LOW);
-  delay(3000);
+  delay(1000);
   digitalWrite(motor, HIGH);
 }
 char leerTeclado() {
