@@ -131,6 +131,7 @@ int tiemponumeros = 950;
 const int tempambiente = 2;
 const int tempcorporal = 1;
 const int distanciaminima = 5;
+const int distanciaminimausuario =7;
 const int temperaturamaxima = 37; //temperatura en la cual es usuario ya no puede entrar
 
 //**************************LOOOOP**************************
@@ -147,7 +148,7 @@ void loop() {
   }
 inicio:
   float distancia = medirDistancia();
-  if (distancia < distanciaminima) {
+  if (distancia < distanciaminimausuario) {
     if (sonido) {
       mp3.play(49); // dice "ingrese sus pertenencias"
       delay(3000);
@@ -410,7 +411,7 @@ void reportar(int temperaturaCorporal, int temperaturaAmbiente, String usuario) 
 void abrirPuerta() {
 
   digitalWrite(puerta, LOW);
-  delay(1500);
+  delay(750);
   digitalWrite(puerta, HIGH);
 }
 void desinfectarTelefono(int tiempo) {
@@ -421,7 +422,7 @@ void desinfectarTelefono(int tiempo) {
 void desinfectarPuerta() {
 
   digitalWrite(motor, LOW);
-  delay(3000);
+  delay(1000);
   digitalWrite(motor, HIGH);
 }
 char leerTeclado() {
